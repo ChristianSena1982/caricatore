@@ -4,7 +4,7 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 function normalizeKey(str) {
@@ -31,29 +31,64 @@ function normalizeUrl(rawUrl) {
   return "https://" + u;
 }
 
-function isJunkDomain(urlStr) {
+function isJunkOrForeignDomain(urlStr) {
   const low = String(urlStr || "").toLowerCase();
-  return (
-    !low ||
-    low.includes("tripadvisor.") ||
-    low.includes("yelp.") ||
-    low.includes("thefork.") ||
-    low.includes("justeat.") ||
-    low.includes("deliveroo.") ||
-    low.includes("ubereats.") ||
-    low.includes("glovoapp.") ||
-    low.includes("openstreetmap.org") ||
-    low.includes("wikipedia.org") ||
-    low.includes("wikidata.org") ||
-    low.includes("duckduckgo.com") ||
-    low.includes("bing.com") ||
-    low.includes("microsoft.com") ||
-    low.includes("google.") ||
-    low.includes("facebook.com") ||
-    low.includes("instagram.com") ||
-    low.includes("tiktok.com") ||
-    low.includes("youtube.com")
-  );
+  if (!low) return true;
+  const blocked = [
+    "tripadvisor.", "yelp.", "thefork.", "justeat.", "deliveroo.",
+    "ubereats.", "glovoapp.", "openstreetmap.org", "wikipedia.org",
+    "wikidata.org", "duckduckgo.com", "bing.com", "microsoft.com",
+    "google.", "facebook.com", "instagram.com", "tiktok.com", "youtube.com"
+  ];
+  if (blocked.some((b) => low.includes(b))) return true;
+
+  try {
+    const hostname = new URL(normalizeUrl(low)).hostname;
+    if (/\.(es|de|ro|fr|uk|ch|at|nl|be|pt|pl|gr|us|ca|ru|br|ar|mx)$/i.test(hostname)) {
+      return true;
+    }
+  } catch {
+    return true;
+  }
+  return false;
+}
+
+function isInsideItaly(lat, lon, countryCode = "", addressText = "", phone = "", website = "") {
+  if (countryCode && String(countryCode).toUpperCase() !== "IT") {
+    return false;
+  }
+
+  const numLat = Number(lat);
+  const numLon = Number(lon);
+  if (Number.isFinite(numLat) && Number.isFinite(numLon)) {
+    if (numLat < 36.2 || numLat > 47.3 || numLon < 6.4 || numLon > 18.9) {
+      return false;
+    }
+  }
+
+  const phoneClean = String(phone || "").replace(/[\s\-().]/g, "");
+  if (phoneClean.startsWith("+") && !phoneClean.startsWith("+39") && !phoneClean.startsWith("0039")) {
+    return false;
+  }
+
+  if (website && isJunkOrForeignDomain(website)) {
+    return false;
+  }
+
+  const lowAddr = normalizeText(addressText);
+  const foreignTokens = [
+    "carrer ", "calle ", "avenida ", "barcelona", "madrid", "spain", "espana",
+    "spandau", "berlin", "munich", "munchen", "hamburg", "germany", "deutschland",
+    "bucharest", "bucuresti", "drumul ", "romania",
+    "paris", "lyon", "marseille", "france",
+    "london", "united kingdom", "zurich", "geneva", "switzerland", "schweiz",
+    "vienna", "wien", "austria", "canada", "united states", "finland", "suomi"
+  ];
+  if (foreignTokens.some((ft) => lowAddr.includes(ft))) {
+    return false;
+  }
+
+  return true;
 }
 
 function cleanPhone(raw) {
@@ -63,11 +98,14 @@ function cleanPhone(raw) {
 function formatItalianPhone(phoneStr) {
   const cleaned = cleanPhone(phoneStr);
   if (!cleaned) return "";
+  if (cleaned.startsWith("+") && !cleaned.startsWith("+39") && !cleaned.startsWith("0039")) {
+    return "";
+  }
   const digitsOnly = cleaned.replace(/[^\d+]/g, "");
   const noPrefix = digitsOnly.replace(/^\+39/, "").replace(/^0039/, "");
   if (/^3\d{8,9}$/.test(noPrefix)) return "+39 " + noPrefix;
   if (/^0\d{5,10}$/.test(noPrefix)) return noPrefix;
-  return cleaned;
+  return "";
 }
 
 function isItalianMobile(phoneStr) {
@@ -97,7 +135,7 @@ function extractContacts(tags = {}) {
   ).trim();
 
   if (whatsapp) {
-    whatsapp = formatItalianMobile(whatsapp) || whatsapp;
+    whatsapp = formatItalianMobile(whatsapp) || "";
   } else if (isItalianMobile(rawPhone)) {
     whatsapp = formatItalianMobile(rawPhone);
   }
@@ -108,7 +146,7 @@ function extractContacts(tags = {}) {
       tags.url ||
       ""
   );
-  const website = isJunkDomain(candidateSite) ? "" : candidateSite;
+  const website = isJunkOrForeignDomain(candidateSite) ? "" : candidateSite;
 
   const email = String(tags.email || tags["contact:email"] || "").trim();
 
@@ -138,7 +176,7 @@ function buildZoneVariants(zona) {
   return Array.from(variants);
 }
 
-async function fetchTextSafe(url, options = {}, timeoutMs = 7000) {
+async function fetchTextSafe(url, options = {}, timeoutMs = 8000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -161,7 +199,7 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 7000) {
   }
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 12000) {
+async function fetchJsonSafe(url, options = {}, timeoutMs = 15000) {
   const txt = await fetchTextSafe(
     url,
     {
@@ -188,6 +226,15 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
     const name = String(tags.name || "").trim();
     if (!name) continue;
 
+    const lat = el.lat || (el.center && el.center.lat);
+    const lon = el.lon || (el.center && el.center.lon);
+    const contacts = extractContacts(tags);
+    const addrText = `${tags["addr:city"] || ""} ${tags["addr:street"] || ""} ${tags["addr:suburb"] || ""} ${tags["addr:country"] || ""}`;
+
+    if (!isInsideItaly(lat, lon, tags["addr:country"] || "IT", addrText, contacts.phone, contacts.website)) {
+      continue;
+    }
+
     const detectedZone =
       tags["addr:suburb"] ||
       tags["addr:neighbourhood"] ||
@@ -197,7 +244,6 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
       zonaRichiesta ||
       "Centro";
 
-    const contacts = extractContacts(tags);
     const info = buildInfoLine({
       street: tags["addr:street"] || "",
       housenumber: tags["addr:housenumber"] || "",
@@ -235,11 +281,11 @@ async function runOverpassQuery(overpassQuery) {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/15.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/17.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      13000
+      15000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
@@ -248,100 +294,125 @@ async function runOverpassQuery(overpassQuery) {
   return [];
 }
 
-async function searchOverpassAllPlaces(citta, zona = "", limit = 200) {
+// Griglia ampia su Roma per coprire migliaia di locali in parallelo senza limiti stretti
+const ROMA_SECTORS = [
+  "41.9028,12.4964", // Centro / Repubblica / Barberini / Monti
+  "41.9065,12.4675", // Prati / Vaticano / Cola di Rienzo
+  "41.9245,12.5135", // Salario / Nomentano / Trieste / Coppede'
+  "41.8895,12.5125", // San Giovanni / Esquilino / Termini / Castro Pretorio
+  "41.8820,12.4730", // Trastevere / Testaccio / Aventino
+  "41.8555,12.4955", // Garbatella / Ostiense / Marconi / San Paolo
+  "41.8680,12.5480", // Tuscolana / Quadraro / Numidio Quadrato / Cinecitta'
+  "41.9120,12.5620", // Tiburtina / Pietralata / Colli Aniene
+  "41.9480,12.4750", // Flaminio / Parioli / Ponte Milvio / Vigna Clara
+  "41.8320,12.4680"  // EUR / Laurentino / Fonte Meravigliosa
+];
+
+async function searchOverpassMassive(citta, zona = "", limit = 2000) {
   const cityEsc = citta.replace(/"/g, '\\"');
+  const isRoma = normalizeText(citta) === "roma";
   const zoneVariants = buildZoneVariants(zona);
   const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const outCap = Math.min(Math.max(limit * 3, 250), 1200);
+  const chunkCap = Math.min(Math.max(limit, 500), 2500);
 
-  const queries = [];
-
-  if (zona) {
-    queries.push(`
-[out:json][timeout:20];
-area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;
+  if (isRoma) {
+    const queries = zona
+      ? [
+          `
+[out:json][timeout:25];
 (
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["name"~"${zoneRegex}",i](area.a);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["addr:street"~"${zoneRegex}",i](area.a);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["addr:suburb"~"${zoneRegex}",i](area.a);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["addr:neighbourhood"~"${zoneRegex}",i](area.a);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["name"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["addr:street"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["addr:suburb"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["addr:neighbourhood"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
 );
-out center tags ${outCap};
-`.trim());
+out center tags ${chunkCap};
+`.trim()
+        ]
+      : ROMA_SECTORS.map(
+          (pt) => `
+[out:json][timeout:20];
+(
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["name"](around:3500,${pt});
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["name"](around:3500,${pt});
+);
+out center tags ${chunkCap};
+`.trim()
+        );
+
+    const lists = await Promise.all(
+      queries.map(async (q) => {
+        const els = await runOverpassQuery(q);
+        return mapOverpassElements(els, citta, zona);
+      })
+    );
+    return lists.flat();
   }
 
-  // Query principale per tutta la citta' (nodi + edifici/aree)
-  queries.push(`
-[out:json][timeout:20];
+  // Per qualsiasi altra citta' italiana: estrazione completa su nodi e aree/edifici
+  const q = `
+[out:json][timeout:25];
 area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;
 (
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["name"](area.a);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro"]["name"](area.a);
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["name"](area.a);
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream|bistro|food_court"]["name"](area.a);
 );
-out center tags ${outCap};
-`.trim());
+out center tags ${chunkCap};
+`.trim();
 
-  // Se e' Roma, aggiunge anche una query ampia sull'area metropolitana di Roma per massimizzare il volume
-  if (normalizeText(citta) === "roma") {
-    queries.push(`
-[out:json][timeout:20];
-(
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.70,12.25,42.08,12.75);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.70,12.25,42.08,12.75);
-);
-out center tags ${outCap};
-`.trim());
-  }
-
-  const results = await Promise.all(
-    queries.map(async (q) => {
-      const els = await runOverpassQuery(q);
-      return mapOverpassElements(els, citta, zona);
-    })
-  );
-
-  return results.flat();
+  const els = await runOverpassQuery(q);
+  return mapOverpassElements(els, citta, zona);
 }
 
-async function searchPhotonAll(citta, zona = "") {
+async function searchPhotonStrictlyItalian(citta, zona = "") {
   const queries = zona
     ? [
-        `ristorante ${zona} ${citta}`,
-        `pizzeria ${zona} ${citta}`,
-        `trattoria ${zona} ${citta}`,
-        `osteria ${zona} ${citta}`,
-        `bar ${zona} ${citta}`,
-        `pub ${zona} ${citta}`,
-        `ristorante ${citta}`,
-        `pizzeria ${citta}`,
-        `trattoria ${citta}`
+        `ristorante ${zona} ${citta} italia`,
+        `pizzeria ${zona} ${citta} italia`,
+        `trattoria ${zona} ${citta} italia`,
+        `osteria ${zona} ${citta} italia`,
+        `bar ${zona} ${citta} italia`
       ]
     : [
-        `ristorante ${citta}`,
-        `pizzeria ${citta}`,
-        `trattoria ${citta}`,
-        `osteria ${citta}`,
-        `bar ${citta}`,
-        `pub ${citta}`,
-        `bistrot ${citta}`,
-        `gelateria ${citta}`,
-        `ristoranti ${citta}`,
-        `pizzerie ${citta}`
+        `ristorante ${citta} italia`,
+        `pizzeria ${citta} italia`,
+        `trattoria ${citta} italia`,
+        `osteria ${citta} italia`,
+        `bar ${citta} italia`,
+        `pub ${citta} italia`,
+        `bistrot ${citta} italia`
       ];
+
+  const zoneVariants = buildZoneVariants(zona);
 
   const lists = await Promise.all(
     queries.map(async (q) => {
       const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=50`;
-      const data = await fetchJsonSafe(url, {}, 6000);
+      const data = await fetchJsonSafe(url, {}, 6500);
       const features = data && Array.isArray(data.features) ? data.features : [];
       const out = [];
 
       for (const f of features) {
         const p = f.properties || {};
+        const coords = (f.geometry && f.geometry.coordinates) || [];
+        const lon = coords[0];
+        const lat = coords[1];
         const name = String(p.name || "").trim();
         if (!name) continue;
 
         const contacts = extractContacts(p);
+        const addrString = `${p.city || ""} ${p.street || ""} ${p.district || ""} ${p.country || ""}`;
+        if (!isInsideItaly(lat, lon, p.countrycode || "IT", addrString, contacts.phone, contacts.website)) {
+          continue;
+        }
+
+        if (zoneVariants.length > 0) {
+          const hay = normalizeText(
+            `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""}`
+          );
+          if (!zoneVariants.some((zv) => hay.includes(zv))) continue;
+        }
+
         const info = buildInfoLine({
           street: p.street || "",
           housenumber: p.housenumber || "",
@@ -369,32 +440,31 @@ async function searchPhotonAll(citta, zona = "") {
   return lists.flat();
 }
 
-async function searchNominatimAll(citta, zona = "") {
+async function searchNominatimStrictlyItalian(citta, zona = "") {
   const queries = zona
     ? [
-        `restaurant ${zona} ${citta}`,
-        `pizzeria ${zona} ${citta}`,
-        `trattoria ${zona} ${citta}`,
-        `bar ${zona} ${citta}`,
-        `restaurant ${citta}`,
-        `pizzeria ${citta}`
+        `restaurant ${zona} ${citta}, Italia`,
+        `pizzeria ${zona} ${citta}, Italia`,
+        `trattoria ${zona} ${citta}, Italia`,
+        `bar ${zona} ${citta}, Italia`
       ]
     : [
-        `restaurant ${citta}`,
-        `pizzeria ${citta}`,
-        `trattoria ${citta}`,
-        `osteria ${citta}`,
-        `bar ${citta}`,
-        `pub ${citta}`
+        `restaurant ${citta}, Italia`,
+        `pizzeria ${citta}, Italia`,
+        `trattoria ${citta}, Italia`,
+        `osteria ${citta}, Italia`,
+        `bar ${citta}, Italia`
       ];
+
+  const zoneVariants = buildZoneVariants(zona);
 
   const lists = await Promise.all(
     queries.map(async (q) => {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&countrycodes=it&limit=50`;
       const data = await fetchJsonSafe(
         url,
-        { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/15.0" } },
-        7000
+        { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/17.0" } },
+        7500
       );
       if (!Array.isArray(data)) return [];
       const out = [];
@@ -405,6 +475,18 @@ async function searchNominatimAll(citta, zona = "") {
         const addr = row.address || {};
         const extra = row.extratags || {};
         const contacts = extractContacts(extra);
+
+        if (!isInsideItaly(row.lat, row.lon, addr.country_code || "it", row.display_name || "", contacts.phone, contacts.website)) {
+          continue;
+        }
+
+        if (zoneVariants.length > 0) {
+          const hay = normalizeText(
+            `${name} ${row.display_name || ""} ${addr.road || ""} ${addr.suburb || ""} ${addr.neighbourhood || ""}`
+          );
+          if (!zoneVariants.some((zv) => hay.includes(zv))) continue;
+        }
+
         const info = buildInfoLine({
           street: addr.road || addr.pedestrian || "",
           housenumber: addr.house_number || "",
@@ -433,7 +515,7 @@ async function searchNominatimAll(citta, zona = "") {
   return lists.flat();
 }
 
-function mergeAndDeduplicate(pools = [], zona = "", limit = 200) {
+function mergeAndDeduplicate(pools = [], zona = "", limit = 2000) {
   const byKey = new Map();
   const zLow = normalizeText(zona);
 
@@ -472,7 +554,7 @@ function mergeAndDeduplicate(pools = [], zona = "", limit = 200) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v15",
+    service: "vocalis-estrattore-ristoranti-v17",
     timestamp: new Date().toISOString()
   });
 });
@@ -481,7 +563,7 @@ app.get("/api/restaurants", async (req, res) => {
   try {
     const cittaRaw = String(req.query.citta || "").trim();
     const zona = String(req.query.zona || "").trim();
-    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit || "200", 10) || 200));
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit || "2000", 10) || 2000));
 
     if (!cittaRaw) {
       return res.status(400).json({ error: "Parametro 'citta' obbligatorio." });
@@ -490,9 +572,9 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassAllPlaces(citta, zona, limit),
-      searchPhotonAll(citta, zona),
-      searchNominatimAll(citta, zona)
+      searchOverpassMassive(citta, zona, limit),
+      searchPhotonStrictlyItalian(citta, zona),
+      searchNominatimStrictlyItalian(citta, zona)
     ]);
 
     const items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], zona, limit);
@@ -513,5 +595,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v15 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v17 in ascolto sulla porta ${PORT}`);
 });
