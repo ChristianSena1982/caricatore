@@ -7,20 +7,19 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// Prefissi CAP principali per controlli rapidi di coerenza (opzionali / estendibili)
-const CITY_CAP_PREFIXES = {
-  roma: ["001"],
-  milano: ["201"],
-  napoli: ["801"],
-  torino: ["101"],
-  bologna: ["401"],
-  firenze: ["501"],
-  parma: ["431"],
-  genova: ["161"],
-  palermo: ["901"],
-  bari: ["701"],
-  cerveteri: ["00052"],
-  ladispoli: ["00055"]
+const CITY_BBOX = {
+  roma: "41.78,12.38,42.02,12.62",
+  milano: "45.40,9.08,45.54,9.28",
+  parma: "44.72,10.22,44.88,10.42",
+  napoli: "40.78,14.16,40.92,14.35",
+  torino: "45.00,7.58,45.14,7.77",
+  bologna: "44.44,11.25,44.55,11.42",
+  firenze: "43.72,11.18,43.83,11.34",
+  genova: "44.38,8.82,44.48,9.04",
+  palermo: "38.06,13.26,38.20,13.42",
+  bari: "41.05,16.80,41.16,16.95",
+  cerveteri: "41.96,12.04,42.05,12.16",
+  ladispoli: "41.93,12.04,41.98,12.12"
 };
 
 function normalizeKey(str) {
@@ -67,18 +66,15 @@ function isRestaurantOrPizzeria(name = "", amenity = "", cuisine = "") {
   if (["bar", "pub", "cafe", "ice_cream", "biergarten"].includes(aLow)) {
     return false;
   }
-  if (aLow === "restaurant") return true;
-  if (
+  return (
+    aLow === "restaurant" ||
     cLow.includes("pizza") ||
     nLow.includes("pizzeria") ||
     nLow.includes("pizza") ||
     nLow.includes("ristorante") ||
     nLow.includes("trattoria") ||
     nLow.includes("osteria")
-  ) {
-    return true;
-  }
-  return false;
+  );
 }
 
 function extractCap(postcode = "", infoText = "") {
@@ -87,37 +83,6 @@ function extractCap(postcode = "", infoText = "") {
   const fromInfo = String(infoText || "").match(/\bCAP\s*(\d{5})\b/i);
   if (fromInfo) return fromInfo[1];
   return "99999";
-}
-
-function isMatchingCityAndCap(citta, tags = {}, cap = "99999") {
-  const cityKey = normalizeText(citta);
-  const tagCity = normalizeText(tags["addr:city"] || "");
-  const tagSuburb = normalizeText(tags["addr:suburb"] || "");
-  const tagCountry = String(tags["addr:country"] || "IT").toUpperCase();
-
-  if (tagCountry && tagCountry !== "IT") {
-    return false;
-  }
-
-  // Se OSM indica esplicitamente un'altra citta' diversa da quella richiesta, scarta
-  if (tagCity && !tagCity.includes(cityKey) && !cityKey.includes(tagCity)) {
-    // Eccezione: frazioni/municipi dentro la citta' richiesta
-    const combined = `${tagCity} ${tagSuburb}`;
-    if (!combined.includes(cityKey)) {
-      return false;
-    }
-  }
-
-  // Se conosciamo i prefissi CAP per la citta' e c'e' un CAP valido, verifica coerenza
-  const allowedPrefixes = CITY_CAP_PREFIXES[cityKey];
-  if (allowedPrefixes && cap !== "99999") {
-    const okCap = allowedPrefixes.some((pfx) => cap.startsWith(pfx));
-    if (!okCap) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 function cleanPhone(raw) {
@@ -205,7 +170,24 @@ function buildZoneVariants(zona) {
   return Array.from(variants);
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 15000) {
+// Divide un bounding box (south,west,north,east) in 4 quadranti per estrarre piu' dati senza timeout
+function splitBboxIntoFour(bboxStr) {
+  const parts = String(bboxStr || "").split(",").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) {
+    return [bboxStr];
+  }
+  const [s, w, n, e] = parts;
+  const midLat = (s + n) / 2;
+  const midLon = (w + e) / 2;
+  return [
+    `${s},${w},${midLat},${midLon}`,
+    `${s},${midLon},${midLat},${e}`,
+    `${midLat},${w},${n},${midLon}`,
+    `${midLat},${midLon},${n},${e}`
+  ];
+}
+
+async function fetchJsonSafe(url, options = {}, timeoutMs = 18000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -243,11 +225,11 @@ async function runOverpassQuery(overpassQuery) {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/OSM-Clean"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/OSM-All"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      15000
+      18000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
@@ -268,10 +250,6 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
     }
 
     const cap = extractCap(tags["addr:postcode"] || "", "");
-    if (!isMatchingCityAndCap(citta, tags, cap)) {
-      continue;
-    }
-
     const contacts = extractContacts(tags);
     const detectedZone =
       tags["addr:suburb"] ||
@@ -305,78 +283,83 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
   return items;
 }
 
-const ROMA_SECTORS = [
-  "41.9028,12.4964", // Centro / Repubblica / Monti
-  "41.9065,12.4675", // Prati / Vaticano
-  "41.9245,12.5135", // Salario / Nomentano / Trieste
-  "41.8895,12.5125", // San Giovanni / Esquilino
-  "41.8820,12.4730", // Trastevere / Testaccio
-  "41.8555,12.4955", // Garbatella / Ostiense
-  "41.8680,12.5480", // Tuscolana / Cinecitta'
-  "41.8320,12.4680"  // EUR
-];
+async function getBboxForCity(citta) {
+  const key = normalizeText(citta);
+  if (CITY_BBOX[key]) return CITY_BBOX[key];
 
-async function searchOpenStreetMap(citta, zona = "", limit = 200) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(citta + ", Italia")}&format=jsonv2&countrycodes=it&limit=1`;
+  const data = await fetchJsonSafe(
+    url,
+    { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/OSM-All" } },
+    8000
+  );
+  if (Array.isArray(data) && data[0] && Array.isArray(data[0].boundingbox) && data[0].boundingbox.length === 4) {
+    const [south, north, west, east] = data[0].boundingbox;
+    return `${south},${west},${north},${east}`;
+  }
+  return null;
+}
+
+async function searchOpenStreetMapAll(citta, zona = "", limit = 2000) {
   const cityEsc = citta.replace(/"/g, '\\"');
-  const isRoma = normalizeText(citta) === "roma";
   const zoneVariants = buildZoneVariants(zona);
   const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const outCap = Math.min(Math.max(limit * 2, 300), 1200);
+  const perBoxCap = 2500;
+  const bbox = await getBboxForCity(citta);
 
-  if (isRoma) {
-    const queries = zona
-      ? [
-          `
-[out:json][timeout:20];
-(
-  node["amenity"="restaurant"]["name"~"${zoneRegex}",i](41.78,12.38,42.02,12.62);
-  way["amenity"="restaurant"]["name"~"${zoneRegex}",i](41.78,12.38,42.02,12.62);
-  node["amenity"="restaurant"]["addr:street"~"${zoneRegex}",i](41.78,12.38,42.02,12.62);
-  node["amenity"="restaurant"]["addr:suburb"~"${zoneRegex}",i](41.78,12.38,42.02,12.62);
-  node["cuisine"~"pizza",i]["name"~"${zoneRegex}",i](41.78,12.38,42.02,12.62);
-);
-out center tags ${outCap};
-`.trim()
-        ]
-      : ROMA_SECTORS.map(
-          (pt) => `
-[out:json][timeout:18];
-(
-  node["amenity"="restaurant"]["name"](around:3000,${pt});
-  way["amenity"="restaurant"]["name"](around:3000,${pt});
-  node["cuisine"~"pizza",i]["name"](around:3000,${pt});
-);
-out center tags ${outCap};
-`.trim()
-        );
+  if (bbox) {
+    const boxes = zona ? [bbox] : splitBboxIntoFour(bbox);
 
     const lists = await Promise.all(
-      queries.map(async (q) => {
+      boxes.map(async (subBox) => {
+        const q = zona
+          ? `
+[out:json][timeout:25];
+(
+  node["amenity"="restaurant"]["name"~"${zoneRegex}",i](${subBox});
+  way["amenity"="restaurant"]["name"~"${zoneRegex}",i](${subBox});
+  node["amenity"="restaurant"]["addr:street"~"${zoneRegex}",i](${subBox});
+  node["amenity"="restaurant"]["addr:suburb"~"${zoneRegex}",i](${subBox});
+  node["cuisine"~"pizza",i]["name"~"${zoneRegex}",i](${subBox});
+);
+out center tags ${perBoxCap};
+`.trim()
+          : `
+[out:json][timeout:25];
+(
+  node["amenity"="restaurant"]["name"](${subBox});
+  way["amenity"="restaurant"]["name"](${subBox});
+  node["cuisine"~"pizza",i]["name"](${subBox});
+  way["cuisine"~"pizza",i]["name"](${subBox});
+);
+out center tags ${perBoxCap};
+`.trim();
+
         const els = await runOverpassQuery(q);
         return mapOverpassElements(els, citta, zona);
       })
     );
+
     return lists.flat();
   }
 
-  // Per qualsiasi altro comune italiano (Parma, Cerveteri, Ladispoli, Milano, ecc.)
   const q = `
-[out:json][timeout:20];
-area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;
+[out:json][timeout:25];
+area["name"~"^${cityEsc}$",i]->.a;
 (
   node["amenity"="restaurant"]["name"](area.a);
   way["amenity"="restaurant"]["name"](area.a);
   node["cuisine"~"pizza",i]["name"](area.a);
   way["cuisine"~"pizza",i]["name"](area.a);
 );
-out center tags ${outCap};
+out center tags ${perBoxCap};
 `.trim();
 
   const els = await runOverpassQuery(q);
   return mapOverpassElements(els, citta, zona);
 }
 
-function mergeSortByCapAndDeduplicate(items = [], limit = 200) {
+function mergeSortByCapAndDeduplicate(items = [], limit = 2000) {
   const byKey = new Map();
 
   for (const item of items) {
@@ -414,7 +397,7 @@ function mergeSortByCapAndDeduplicate(items = [], limit = 200) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-osm-clean",
+    service: "vocalis-estrattore-osm-all",
     timestamp: new Date().toISOString()
   });
 });
@@ -423,14 +406,14 @@ app.get("/api/restaurants", async (req, res) => {
   try {
     const cittaRaw = String(req.query.citta || "").trim();
     const zona = String(req.query.zona || "").trim();
-    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit || "200", 10) || 200));
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit || "2000", 10) || 2000));
 
     if (!cittaRaw) {
       return res.status(400).json({ error: "Parametro 'citta' obbligatorio." });
     }
 
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
-    const rawItems = await searchOpenStreetMap(citta, zona, limit);
+    const rawItems = await searchOpenStreetMapAll(citta, zona, limit);
     const items = mergeSortByCapAndDeduplicate(rawItems, limit);
 
     return res.json({
@@ -449,5 +432,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor (OSM Clean) in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor (OSM All) in ascolto sulla porta ${PORT}`);
 });
