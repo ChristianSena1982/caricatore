@@ -23,8 +23,36 @@ function normalizeUrl(rawUrl) {
   return "https://" + u;
 }
 
+function isJunkDomain(urlStr) {
+  const low = String(urlStr || "").toLowerCase();
+  return (
+    !low ||
+    low.includes("tripadvisor.") ||
+    low.includes("yelp.") ||
+    low.includes("thefork.") ||
+    low.includes("justeat.") ||
+    low.includes("deliveroo.") ||
+    low.includes("ubereats.") ||
+    low.includes("glovoapp.") ||
+    low.includes("openstreetmap.org") ||
+    low.includes("wikipedia.org") ||
+    low.includes("duckduckgo.com") ||
+    low.includes("google.")
+  );
+}
+
 function cleanPhone(raw) {
   return String(raw || "").replace(/[\s\-().]/g, "").trim();
+}
+
+function formatItalianPhone(phoneStr) {
+  const cleaned = cleanPhone(phoneStr);
+  if (!cleaned) return "";
+  const digitsOnly = cleaned.replace(/[^\d+]/g, "");
+  const noPrefix = digitsOnly.replace(/^\+39/, "").replace(/^0039/, "");
+  if (/^3\d{8,9}$/.test(noPrefix)) return "+39 " + noPrefix;
+  if (/^0\d{5,10}$/.test(noPrefix)) return noPrefix;
+  return cleaned;
 }
 
 function isItalianMobile(phoneStr) {
@@ -35,11 +63,11 @@ function isItalianMobile(phoneStr) {
 function formatItalianMobile(phoneStr) {
   const digits = cleanPhone(phoneStr).replace(/^\+39/, "").replace(/^0039/, "");
   if (/^3\d{8,9}$/.test(digits)) return "+39" + digits;
-  return String(phoneStr || "").trim();
+  return "";
 }
 
 function extractContacts(tags = {}) {
-  const phone = String(
+  const rawPhone = String(
     tags.phone ||
       tags["contact:phone"] ||
       tags["phone:mobile"] ||
@@ -47,24 +75,27 @@ function extractContacts(tags = {}) {
       ""
   ).trim();
 
+  const phone = formatItalianPhone(rawPhone);
+
   let whatsapp = String(
     tags["contact:whatsapp"] || tags.whatsapp || ""
   ).trim();
 
-  if (!whatsapp && isItalianMobile(phone)) {
-    whatsapp = formatItalianMobile(phone);
-  } else if (whatsapp) {
-    whatsapp = formatItalianMobile(whatsapp);
+  if (whatsapp) {
+    whatsapp = formatItalianMobile(whatsapp) || whatsapp;
+  } else if (isItalianMobile(rawPhone)) {
+    whatsapp = formatItalianMobile(rawPhone);
   }
 
-  const website = normalizeUrl(
+  const candidateSite = normalizeUrl(
     tags.website ||
       tags["contact:website"] ||
       tags.url ||
-      tags["contact:facebook"] ||
       tags["contact:instagram"] ||
+      tags["contact:facebook"] ||
       ""
   );
+  const website = isJunkDomain(candidateSite) ? "" : candidateSite;
 
   const email = String(tags.email || tags["contact:email"] || "").trim();
 
@@ -88,7 +119,9 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 6000) {
     const res = await fetch(url, {
       ...options,
       headers: {
-        "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
         ...(options.headers || {})
       },
       signal: controller.signal
@@ -122,6 +155,57 @@ async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
   }
 }
 
+function extractContactsFromHtml(html, item) {
+  if (!html) return;
+
+  if (!item.email) {
+    const mailMatch = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+    if (mailMatch && mailMatch[1]) {
+      item.email = mailMatch[1].trim().toLowerCase();
+    } else {
+      const candidates = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:it|com|eu|org|net)/gi) || [];
+      const valid = candidates.find(
+        (m) => !/example\.|sentry\.|wixpress\.|noreply\.|test@/i.test(m)
+      );
+      if (valid) item.email = valid.trim().toLowerCase();
+    }
+  }
+
+  if (!item.whatsapp) {
+    const waMatch = html.match(/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\+?\d{8,15})/i);
+    if (waMatch && waMatch[1]) {
+      item.whatsapp = formatItalianMobile(waMatch[1]) || waMatch[1];
+    }
+  }
+
+  if (!item.telefono) {
+    const telHrefMatch = html.match(/href=["']tel:([+0-9\s().-]{7,22})["']/i);
+    if (telHrefMatch && telHrefMatch[1]) {
+      const formatted = formatItalianPhone(telHrefMatch[1]);
+      if (formatted) {
+        item.telefono = formatted;
+        if (!item.whatsapp && isItalianMobile(formatted)) {
+          item.whatsapp = formatItalianMobile(formatted);
+        }
+      }
+    }
+  }
+
+  if (!item.telefono) {
+    const itPhoneMatch = html.match(/(?:\+39\s*)?(?:0\d{1,3}[\s.-]?\d{5,8}|3\d{2}[\s.-]?\d{6,7})/);
+    if (itPhoneMatch && itPhoneMatch[0]) {
+      const formatted = formatItalianPhone(itPhoneMatch[0]);
+      if (formatted) {
+        item.telefono = formatted;
+        if (!item.whatsapp && isItalianMobile(formatted)) {
+          item.whatsapp = formatItalianMobile(formatted);
+        }
+      }
+    }
+  }
+}
+
+// Visita homepage e pagina contatti eventuale del ristorante per estrarre email, tel e whatsapp
 async function enrichFromWebsite(item) {
   if (!item.sito || (item.email && item.telefono && item.whatsapp)) return item;
   if (/instagram\.com|facebook\.com/i.test(item.sito)) return item;
@@ -129,35 +213,54 @@ async function enrichFromWebsite(item) {
   const html = await fetchTextSafe(item.sito, {}, 4500);
   if (!html) return item;
 
-  if (!item.email) {
-    const mailMatch = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
-    if (mailMatch && mailMatch[1]) {
-      item.email = mailMatch[1].trim();
-    } else {
-      const textEmail = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:it|com|eu|org|net)/i);
-      if (textEmail && !textEmail[0].includes("example.com")) {
-        item.email = textEmail[0].trim();
+  extractContactsFromHtml(html, item);
+
+  if (!item.email || !item.telefono) {
+    const contactLinkMatch = html.match(/href=["']([^"']*(?:contatt|contact|info|dove-siamo)[^"']*)["']/i);
+    if (contactLinkMatch && contactLinkMatch[1]) {
+      try {
+        const contactUrl = new URL(contactLinkMatch[1], item.sito).toString();
+        const contactHtml = await fetchTextSafe(contactUrl, {}, 4000);
+        if (contactHtml) extractContactsFromHtml(contactHtml, item);
+      } catch {
+        // ignora URL relativi non validi
       }
     }
   }
 
-  if (!item.whatsapp) {
-    const waMatch = html.match(/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\+?\d{8,15})/i);
-    if (waMatch && waMatch[1]) {
-      item.whatsapp = formatItalianMobile(waMatch[1]);
-    }
-  }
+  return item;
+}
 
-  if (!item.telefono) {
-    const telMatch = html.match(/tel:([+0-9\s-]{7,20})/i);
-    if (telMatch && telMatch[1]) {
-      item.telefono = telMatch[1].trim();
-      if (!item.whatsapp && isItalianMobile(item.telefono)) {
-        item.whatsapp = formatItalianMobile(item.telefono);
+// Ricerca web pubblica per trovare sito, telefono o whatsapp quando mancano su OSM
+async function enrichFromWebSearch(item) {
+  if (item.sito && item.telefono) return item;
+
+  const query = `${item.nome} ${item.citta} telefono sito`;
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  const html = await fetchTextSafe(url, {}, 5500);
+  if (!html) return item;
+
+  if (!item.sito) {
+    const hrefMatches = html.match(/href="(https?:\/\/[^"]+)"/gi) || [];
+    for (const rawHref of hrefMatches) {
+      const cleanHref = rawHref.replace(/^href="/i, "").replace(/"$/, "");
+      let decoded = cleanHref;
+      try {
+        const parsed = new URL(cleanHref);
+        if (parsed.hostname.includes("duckduckgo.com") && parsed.searchParams.get("uddg")) {
+          decoded = decodeURIComponent(parsed.searchParams.get("uddg"));
+        }
+      } catch {
+        // usa cleanHref
+      }
+      if (!isJunkDomain(decoded)) {
+        item.sito = normalizeUrl(decoded);
+        break;
       }
     }
   }
 
+  extractContactsFromHtml(html, item);
   return item;
 }
 
@@ -187,7 +290,7 @@ out center tags ${Math.min(limit * 3, 300)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/4.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
@@ -328,7 +431,7 @@ async function searchNominatim(citta, zona = "") {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0" } },
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/4.0" } },
       7500
     );
     if (!Array.isArray(data)) continue;
@@ -395,7 +498,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
 }
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, service: "vocalis-estrattore-ristoranti-v3", timestamp: new Date().toISOString() });
+  res.json({ ok: true, service: "vocalis-estrattore-ristoranti-v4", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/restaurants", async (req, res) => {
@@ -418,9 +521,16 @@ app.get("/api/restaurants", async (req, res) => {
 
     let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
 
-    const batchSize = 8;
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
+    // 1. Ricerca web per i primi 35 locali privi di sito o telefono
+    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 35);
+    for (let i = 0; i < needWebLookup.length; i += 7) {
+      const batch = needWebLookup.slice(i, i + 7);
+      await Promise.all(batch.map((it) => enrichFromWebSearch(it)));
+    }
+
+    // 2. Visita i siti ufficiali trovati per estrarre email, tel e whatsapp
+    for (let i = 0; i < items.length; i += 8) {
+      const batch = items.slice(i, i + 8);
       await Promise.all(batch.map((it) => enrichFromWebsite(it)));
     }
 
@@ -440,5 +550,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v3 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v4 in ascolto sulla porta ${PORT}`);
 });
