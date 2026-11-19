@@ -161,7 +161,7 @@ function buildZoneVariants(zona) {
   return Array.from(variants);
 }
 
-async function fetchTextSafe(url, options = {}, timeoutMs = 4500) {
+async function fetchTextSafe(url, options = {}, timeoutMs = 6500) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -184,7 +184,7 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
+async function fetchJsonSafe(url, options = {}, timeoutMs = 9500) {
   const txt = await fetchTextSafe(
     url,
     {
@@ -202,119 +202,6 @@ async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
   } catch {
     return null;
   }
-}
-
-function extractContactsFromHtml(html, item) {
-  if (!html) return;
-
-  if (!item.email) {
-    const mailMatch = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
-    if (mailMatch && mailMatch[1]) {
-      item.email = mailMatch[1].trim().toLowerCase();
-    } else {
-      const candidates = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:it|com|eu|org|net)/gi) || [];
-      const valid = candidates.find(
-        (m) => !/example\.|sentry\.|wixpress\.|noreply\.|test@|wordpress\.|joomla\./i.test(m)
-      );
-      if (valid) item.email = valid.trim().toLowerCase();
-    }
-  }
-
-  if (!item.whatsapp) {
-    const waMatch = html.match(/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\+?\d{8,15})/i);
-    if (waMatch && waMatch[1]) {
-      const formattedWa = formatItalianMobile(waMatch[1]);
-      if (formattedWa) item.whatsapp = formattedWa;
-    }
-  }
-
-  if (!item.telefono) {
-    const telHrefMatch = html.match(/href=["']tel:([+0-9\s().-]{7,22})["']/i);
-    if (telHrefMatch && telHrefMatch[1]) {
-      const formatted = formatItalianPhone(telHrefMatch[1]);
-      if (formatted) {
-        item.telefono = formatted;
-        if (!item.whatsapp && isItalianMobile(formatted)) {
-          item.whatsapp = formatItalianMobile(formatted);
-        }
-      }
-    }
-  }
-
-  if (!item.telefono) {
-    const itPhoneMatch = html.match(/(?:\+39\s*)?(?:0\d{1,3}[\s.-]?\d{5,8}|3\d{2}[\s.-]?\d{6,7})/);
-    if (itPhoneMatch && itPhoneMatch[0]) {
-      const formatted = formatItalianPhone(itPhoneMatch[0]);
-      if (formatted) {
-        item.telefono = formatted;
-        if (!item.whatsapp && isItalianMobile(formatted)) {
-          item.whatsapp = formatItalianMobile(formatted);
-        }
-      }
-    }
-  }
-}
-
-function parseSearchResultsHtml(html, item) {
-  if (!html) return;
-
-  if (!item.sito) {
-    const hrefMatches = html.match(/href="(https?:\/\/[^"]+)"/gi) || [];
-    for (const rawHref of hrefMatches) {
-      const cleanHref = rawHref.replace(/^href="/i, "").replace(/"$/, "");
-      let decoded = cleanHref;
-      try {
-        const parsed = new URL(cleanHref);
-        if (parsed.hostname.includes("duckduckgo.com") && parsed.searchParams.get("uddg")) {
-          decoded = decodeURIComponent(parsed.searchParams.get("uddg"));
-        }
-      } catch {
-        // usa cleanHref
-      }
-      if (!isJunkDomain(decoded)) {
-        item.sito = normalizeUrl(decoded);
-        break;
-      }
-    }
-  }
-
-  extractContactsFromHtml(html, item);
-}
-
-async function enrichFromWebsite(item) {
-  if (!item.sito || (item.email && item.telefono && item.whatsapp)) return item;
-
-  const html = await fetchTextSafe(item.sito, {}, 3000);
-  if (!html) return item;
-
-  extractContactsFromHtml(html, item);
-
-  const subPaths = ["/contatti", "/contact", "/info"];
-  for (const sp of subPaths) {
-    if (item.email && item.telefono && item.whatsapp) break;
-    try {
-      const subUrl = new URL(sp, item.sito).toString();
-      const subHtml = await fetchTextSafe(subUrl, {}, 2200);
-      if (subHtml) extractContactsFromHtml(subHtml, item);
-    } catch {
-      // ignora
-    }
-  }
-
-  return item;
-}
-
-async function enrichFromWebSearch(item) {
-  if (item.sito && item.telefono) return item;
-
-  const q = `"${item.nome}" ${item.citta} Italia telefono`;
-  const ddgHtml = await fetchTextSafe(
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
-    {},
-    3000
-  );
-  parseSearchResultsHtml(ddgHtml, item);
-  return item;
 }
 
 function mapOverpassElements(elements, citta, zonaRichiesta) {
@@ -362,62 +249,11 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
   return items;
 }
 
-async function searchOverpassItalianCity(citta, zona = "", limit = 100) {
-  const cityEsc = citta.replace(/"/g, '\\"');
-  const isRoma = normalizeText(citta) === "roma";
-  const zoneVariants = buildZoneVariants(zona);
-  const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-
-  // Su Roma usiamo il bounding box di Roma per evitare timeout su area multi-poligono
-  const scopeBlock = isRoma
-    ? `(41.72,12.28,42.06,12.72)`
-    : `(area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;.searchArea)`;
-
-  const overpassQuery = zona
-    ? isRoma
-      ? `
-[out:json][timeout:20];
-(
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:street"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:street"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:suburb"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:suburb"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
-);
-out center tags ${Math.min(limit * 3, 300)};
-`.trim()
-      : `
-[out:json][timeout:20];
-area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
-(
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
-);
-out center tags ${Math.min(limit * 3, 300)};
-`.trim()
-    : isRoma
-    ? `
-[out:json][timeout:20];
-(
-  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.75,12.35,42.02,12.65);
-  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.75,12.35,42.02,12.65);
-);
-out center tags ${Math.min(limit * 3, 300)};
-`.trim()
-    : `
-[out:json][timeout:20];
-area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
-(
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
-);
-out center tags ${Math.min(limit * 3, 300)};
-`.trim();
-
-  void scopeBlock;
-
+async function runOverpassQuery(overpassQuery) {
   const endpoints = [
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter"
   ];
 
   for (const endpoint of endpoints) {
@@ -427,46 +263,97 @@ out center tags ${Math.min(limit * 3, 300)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/12.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/13.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      12000
+      11000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
-    if (elements.length > 0) {
-      return mapOverpassElements(elements, citta, zona);
-    }
+    if (elements.length > 0) return elements;
   }
-
   return [];
+}
+
+// Query leggere divise per tipo di locale per evitare timeout sulle citta' grandi come Roma
+async function searchOverpassFastChunks(citta, zona = "", limit = 100) {
+  const cityEsc = citta.replace(/"/g, '\\"');
+  const isRoma = normalizeText(citta) === "roma";
+  const zoneVariants = buildZoneVariants(zona);
+  const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+
+  const areaOrBbox = isRoma
+    ? `(41.78,12.38,41.98,12.58)`
+    : `(area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;.a)`;
+
+  const amenityGroups = ["restaurant", "fast_food|cafe", "bar|pub|ice_cream"];
+
+  const chunkPromises = amenityGroups.map(async (amen) => {
+    let q;
+    if (zona && isRoma) {
+      q = `
+[out:json][timeout:15];
+(
+  node["amenity"~"${amen}"]["name"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  node["amenity"~"${amen}"]["addr:street"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  node["amenity"~"${amen}"]["addr:suburb"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+);
+out tags ${Math.min(limit * 2, 200)};
+`.trim();
+    } else if (isRoma) {
+      q = `
+[out:json][timeout:15];
+node["amenity"~"${amen}"]["name"](41.78,12.38,41.98,12.58);
+out tags ${Math.min(limit * 2, 200)};
+`.trim();
+    } else {
+      q = `
+[out:json][timeout:15];
+area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;
+node["amenity"~"${amen}"]["name"](area.a);
+out tags ${Math.min(limit * 2, 200)};
+`.trim();
+    }
+
+    void areaOrBbox;
+    const els = await runOverpassQuery(q);
+    return mapOverpassElements(els, citta, zona);
+  });
+
+  const results = await Promise.all(chunkPromises);
+  return results.flat();
 }
 
 async function searchPhotonItalian(citta, zona = "") {
   const queries = zona
     ? [
-        `ristorante ${zona} ${citta} italia`,
-        `pizzeria ${zona} ${citta} italia`,
-        `trattoria ${zona} ${citta} italia`,
-        `bar ${zona} ${citta} italia`
+        `ristorante ${zona} ${citta}`,
+        `pizzeria ${zona} ${citta}`,
+        `trattoria ${zona} ${citta}`,
+        `osteria ${zona} ${citta}`,
+        `bar ${zona} ${citta}`,
+        `pub ${zona} ${citta}`
       ]
     : [
-        `ristorante ${citta} italia`,
-        `pizzeria ${citta} italia`,
-        `trattoria ${citta} italia`,
-        `osteria ${citta} italia`,
-        `bar ${citta} italia`
+        `ristorante ${citta}`,
+        `pizzeria ${citta}`,
+        `trattoria ${citta}`,
+        `osteria ${citta}`,
+        `bar ${citta}`,
+        `pub ${citta}`,
+        `bistrot ${citta}`,
+        `gelateria ${citta}`
       ];
 
-  const items = [];
   const wantedCity = normalizeText(citta);
   const zoneVariants = buildZoneVariants(zona);
 
-  for (const q of queries) {
+  const queryPromises = queries.map(async (q) => {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=50`;
-    const data = await fetchJsonSafe(url, {}, 5000);
+    const data = await fetchJsonSafe(url, {}, 5500);
     const features = data && Array.isArray(data.features) ? data.features : [];
+    const out = [];
 
     for (const f of features) {
       const p = f.properties || {};
@@ -500,7 +387,7 @@ async function searchPhotonItalian(citta, zona = "") {
         kind: p.osm_value || p.type || "restaurant"
       });
 
-      items.push({
+      out.push({
         nome: name,
         info: info || `Locale (${p.osm_value || "ristorazione"})`,
         citta,
@@ -511,10 +398,12 @@ async function searchPhotonItalian(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 180) break;
-  }
 
-  return items;
+    return out;
+  });
+
+  const lists = await Promise.all(queryPromises);
+  return lists.flat();
 }
 
 async function searchNominatimItalian(citta, zona = "") {
@@ -522,25 +411,28 @@ async function searchNominatimItalian(citta, zona = "") {
     ? [
         `restaurant ${zona} ${citta}, Italia`,
         `pizzeria ${zona} ${citta}, Italia`,
-        `trattoria ${zona} ${citta}, Italia`
+        `trattoria ${zona} ${citta}, Italia`,
+        `bar ${zona} ${citta}, Italia`
       ]
     : [
         `restaurant ${citta}, Italia`,
         `pizzeria ${citta}, Italia`,
-        `trattoria ${citta}, Italia`
+        `trattoria ${citta}, Italia`,
+        `osteria ${citta}, Italia`,
+        `bar ${citta}, Italia`
       ];
 
-  const items = [];
   const zoneVariants = buildZoneVariants(zona);
 
-  for (const q of queries) {
+  const queryPromises = queries.map(async (q) => {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&countrycodes=it&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/12.0" } },
-      6000
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/13.0" } },
+      6500
     );
-    if (!Array.isArray(data)) continue;
+    if (!Array.isArray(data)) return [];
+    const out = [];
 
     for (const row of data) {
       const name = String(row.name || "").split(",")[0].trim();
@@ -569,7 +461,7 @@ async function searchNominatimItalian(citta, zona = "") {
         kind: row.type || "restaurant"
       });
 
-      items.push({
+      out.push({
         nome: name,
         info: info || `Locale (${row.type || "ristorazione"})`,
         citta,
@@ -580,10 +472,12 @@ async function searchNominatimItalian(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 140) break;
-  }
 
-  return items;
+    return out;
+  });
+
+  const lists = await Promise.all(queryPromises);
+  return lists.flat();
 }
 
 function mergeAndDeduplicate(pools = [], limit = 100) {
@@ -609,20 +503,13 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
     }
   }
 
-  const all = Array.from(byKey.values());
-  all.sort((a, b) => {
-    const scoreA = (a.telefono ? 4 : 0) + (a.whatsapp ? 3 : 0) + (a.sito ? 2 : 0) + (a.email ? 2 : 0);
-    const scoreB = (b.telefono ? 4 : 0) + (b.whatsapp ? 3 : 0) + (b.sito ? 2 : 0) + (b.email ? 2 : 0);
-    return scoreB - scoreA;
-  });
-
-  return all.slice(0, limit);
+  return Array.from(byKey.values()).slice(0, limit);
 }
 
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v12",
+    service: "vocalis-estrattore-ristoranti-v13",
     timestamp: new Date().toISOString()
   });
 });
@@ -640,20 +527,12 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassItalianCity(citta, zona, limit),
+      searchOverpassFastChunks(citta, zona, limit),
       searchPhotonItalian(citta, zona),
       searchNominatimItalian(citta, zona)
     ]);
 
-    let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
-
-    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 25);
-    await Promise.all(needWebLookup.map((it) => enrichFromWebSearch(it)));
-
-    const withSites = items.filter((it) => it.sito && (!it.email || !it.telefono || !it.whatsapp)).slice(0, 30);
-    await Promise.all(withSites.map((it) => enrichFromWebsite(it)));
-
-    items = mergeAndDeduplicate([items], limit);
+    const items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
 
     return res.json({
       citta,
@@ -671,5 +550,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v12 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v13 in ascolto sulla porta ${PORT}`);
 });
