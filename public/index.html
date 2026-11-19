@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artsoftware2022 • Vocalis — Estrattore Lead Ristoranti Italia (.xlsx)</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 375px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
+      border: 1px solid #e2e8f0;
+    }
+    .badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 21px;
+      color: #0f172a;
+    }
+    h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      color: #0f172a;
+    }
+    p.desc {
+      margin: 0 0 18px;
+      color: #475569;
+      font-size: 13.5px;
+      line-height: 1.45;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: #1e293b;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13.5px;
+      color: #0f172a;
+      background: #fff;
+      font-family: inherit;
+    }
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1e3a5f;
+      box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .btn {
+      width: 100%;
+      padding: 11px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: #1e3a5f;
+      color: #ffffff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #152943;
+    }
+    .btn-export {
+      background: #0f766e;
+      color: #ffffff;
+      margin-top: 10px;
+    }
+    .btn-export:hover:not(:disabled) {
+      background: #115e59;
+    }
+    .btn-add {
+      background: #334155;
+      color: #ffffff;
+      padding: 8px 12px;
+      font-size: 12.5px;
+      width: auto;
+    }
+    .btn-add:hover:not(:disabled) {
+      background: #1e293b;
+    }
+    .status-box {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      font-size: 12.5px;
+      color: #334155;
+      line-height: 1.45;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    .filters input {
+      max-width: 260px;
+    }
+    .filters select {
+      max-width: 220px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      max-height: 760px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 1080px;
+    }
+    th {
+      background: #1e3a5f;
+      color: #ffffff;
+      text-align: left;
+      padding: 10px 11px;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 11px;
+      border-top: 1px solid #e2e8f0;
+      color: #1e293b;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .sub {
+      color: #64748b;
+      font-size: 11.5px;
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+    .contact-mini {
+      width: 100%;
+      padding: 4px 6px;
+      font-size: 11.5px;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      margin-top: 3px;
+      background: #fff;
+    }
+    .row-select {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      min-width: 145px;
+    }
+    .row-input {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      min-width: 110px;
+    }
+    .row-note {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      min-width: 160px;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .filters input, .filters select { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="layout">
+      <div class="card">
+        <span class="badge">Artsoftware2022 • Vocalis • Render</span>
+        <h1>Estrai Ristoranti Reali</h1>
+        <p class="desc">Servito da backend Node/Express su Render (zero blocchi CORS browser). Estrae locali reali per città italiana, permette la modifica rapida di Sito, Tel, WhatsApp, Email, Stato, Setter e Note ed esporta in <strong>.xlsx</strong>.</p>
+
+        <form id="leadForm">
+          <div class="field">
+            <label for="citta">Città italiana *</label>
+            <input id="citta" name="citta" type="text" value="Firenze" list="italianCities" placeholder="Es. Firenze, Roma, Milano, Cesena, Sassari..." required />
+            <datalist id="italianCities">
+              <option value="Ancona"></option>
+              <option value="Bari"></option>
+              <option value="Bologna"></option>
+              <option value="Cagliari"></option>
+              <option value="Catania"></option>
+              <option value="Cesena"></option>
+              <option value="Firenze"></option>
+              <option value="Genova"></option>
+              <option value="Lecce"></option>
+              <option value="Livorno"></option>
+              <option value="Milano"></option>
+              <option value="Modena"></option>
+              <option value="Napoli"></option>
+              <option value="Padova"></option>
+              <option value="Palermo"></option>
+              <option value="Parma"></option>
+              <option value="Perugia"></option>
+              <option value="Pisa"></option>
+              <option value="Rimini"></option>
+              <option value="Roma"></option>
+              <option value="Salerno"></option>
+              <option value="Sassari"></option>
+              <option value="Torino"></option>
+              <option value="Trento"></option>
+              <option value="Trieste"></option>
+              <option value="Venezia"></option>
+              <option value="Verona"></option>
+            </datalist>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="zona">Zona / Quartiere</label>
+              <input id="zona" name="zona" type="text" placeholder="Es. Centro..." />
+            </div>
+            <div class="field">
+              <label for="limit">Numero contatti (fino a 100)</label>
+              <select id="limit" name="limit">
+                <option value="20">20 contatti</option>
+                <option value="50">50 contatti</option>
+                <option value="100" selected>100 contatti</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="setter">Setter assegnato</label>
+              <input id="setter" name="setter" type="text" placeholder="Es. Eliana" />
+            </div>
+            <div class="field">
+              <label for="statoIniziale">Stato chiamata iniziale</label>
+              <select id="statoIniziale" name="statoIniziale">
+                <option value="Da chiamare" selected>Da chiamare</option>
+                <option value="Non risponde">Non risponde</option>
+                <option value="Richiamare">Richiamare</option>
+                <option value="Segreteria / Occupato">Segreteria / Occupato</option>
+                <option value="Appuntamento fissato">Appuntamento fissato</option>
+                <option value="Non interessato">Non interessato</option>
+                <option value="Numero errato">Numero errato</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="noteIniziali">Note iniziali (opzionale)</label>
+            <textarea id="noteIniziali" name="noteIniziali" placeholder="Es. Chiedere del titolare o del responsabile prenotazioni..."></textarea>
+          </div>
+
+          <button id="loadBtn" type="submit" class="btn btn-primary">Carica Contatti Reali</button>
+          <button id="exportBtn" type="button" class="btn btn-export">Scarica Excel (.xlsx)</button>
+
+          <div id="statusBox" class="status-box">Pronto. Inserisci una città italiana e premi <strong>Carica Contatti Reali</strong>.</div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
+            <p class="desc" style="margin:0;">Modifica Sito, Tel, WhatsApp, Email, Stato, Setter e Note al volo e scarica il file <strong>.xlsx</strong> aggiornato.</p>
+          </div>
+          <button id="addOneBtn" type="button" class="btn btn-add">+ Aggiungi riga manuale</button>
+        </div>
+
+        <div class="filters" style="margin-bottom:14px;">
+          <input id="searchInput" type="text" placeholder="Cerca locale, telefono, whatsapp, sito o email..." />
+          <select id="filterStatus">
+            <option value="">Tutti gli stati chiamata</option>
+            <option value="Da chiamare">Da chiamare</option>
+            <option value="Non risponde">Non risponde</option>
+            <option value="Richiamare">Richiamare</option>
+            <option value="Segreteria / Occupato">Segreteria / Occupato</option>
+            <option value="Appuntamento fissato">Appuntamento fissato</option>
+            <option value="Non interessato">Non interessato</option>
+            <option value="Numero errato">Numero errato</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Locale &amp; Info Ristorante</th>
+                <th>Città / Zona</th>
+                <th>Sito, Tel, WhatsApp &amp; Email</th>
+                <th>Stato Chiamata</th>
+                <th>Setter</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="leadsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CALL_STATUSES = [
+      "Da chiamare",
+      "Non risponde",
+      "Richiamare",
+      "Segreteria / Occupato",
+      "Appuntamento fissato",
+      "Non interessato",
+      "Numero errato"
+    ];
+
+    let leads = [];
+
+    function normalizeKey(str) {
+      return String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
+    }
+
+    function isDuplicate(candidate) {
+      const nKey = normalizeKey(candidate.nome);
+      const tKey = normalizeKey(candidate.telefono);
+      return leads.some((item) => {
+        const sameName = nKey && normalizeKey(item.nome) === nKey;
+        const samePhone = tKey && item.telefono && normalizeKey(item.telefono) === tKey;
+        return sameName || samePhone;
+      });
+    }
+
+    function addManualRow() {
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Italia";
+      const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
+      const zonaFiltro = (document.getElementById("zona").value || "").trim() || "Centro";
+      const setterDefault = (document.getElementById("setter").value || "").trim();
+      const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
+      const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
+
+      leads.unshift({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+        nome: "Nuovo Locale",
+        info: "Inserisci indirizzo o dettagli",
+        citta,
+        zona: zonaFiltro,
+        sito: "",
+        telefono: "",
+        whatsapp: "",
+        email: "",
+        statoChiamata: statoDefault,
+        setter: setterDefault,
+        note: noteDefault
+      });
+      renderTable();
+      document.getElementById("statusBox").innerHTML = `Aggiunta riga manuale per <strong>${escapeHtml(citta)}</strong>. Totale righe: <strong>${leads.length}</strong>.`;
+    }
+
+    async function loadRealContacts() {
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Firenze";
+      const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
+      const zonaFiltro = (document.getElementById("zona").value || "").trim();
+      const setterDefault = (document.getElementById("setter").value || "").trim();
+      const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
+      const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
+      const targetLimit = Math.min(100, Math.max(1, parseInt(document.getElementById("limit").value || "100", 10)));
+
+      const loadBtn = document.getElementById("loadBtn");
+      const statusBox = document.getElementById("statusBox");
+
+      leads = [];
+      loadBtn.disabled = true;
+      loadBtn.textContent = "Estrazione in corso...";
+      statusBox.innerHTML = `Interrogazione backend su Render per <strong>${escapeHtml(citta)}</strong>...`;
+
+      try {
+        const params = new URLSearchParams({
+          citta,
+          zona: zonaFiltro,
+          limit: String(targetLimit)
+        });
+        const res = await fetch(`/api/restaurants?${params.toString()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const rawItems = Array.isArray(data.items) ? data.items : [];
+
+        for (const raw of rawItems) {
+          const record = {
+            id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
+            nome: raw.nome,
+            info: raw.info || "",
+            citta: raw.citta || citta,
+            zona: zonaFiltro || raw.zona || "Centro",
+            sito: raw.sito || "",
+            telefono: raw.telefono || "",
+            whatsapp: raw.whatsapp || "",
+            email: raw.email || "",
+            statoChiamata: statoDefault,
+            setter: setterDefault,
+            note: noteDefault
+          };
+          if (!isDuplicate(record) && leads.length < targetLimit) {
+            leads.push(record);
+          }
+        }
+
+        renderTable();
+        if (leads.length === 0) {
+          statusBox.innerHTML = `Nessun locale trovato per <strong>${escapeHtml(citta)}</strong> al momento. Puoi aggiungere righe con <strong>+ Aggiungi riga manuale</strong>.`;
+        } else {
+          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali reali per <strong>${escapeHtml(citta)}</strong> tramite backend Render.`;
+        }
+      } catch (err) {
+        renderTable();
+        statusBox.innerHTML = `Errore di connessione al backend (<code>${escapeHtml(err.message)}</code>). Verifica che il servizio Node sia avviato su Render o usa <strong>+ Aggiungi riga manuale</strong>.`;
+      } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = "Carica Contatti Reali";
+      }
+    }
+
+    function renderTable() {
+      const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
+      const statusFilter = document.getElementById("filterStatus").value;
+      const tbody = document.getElementById("leadsBody");
+
+      const filtered = leads.filter((item) => {
+        const matchesStatus = !statusFilter || item.statoChiamata === statusFilter;
+        if (!matchesStatus) return false;
+        if (!q) return true;
+        const hay = `${item.nome} ${item.info} ${item.citta} ${item.zona} ${item.sito} ${item.telefono} ${item.whatsapp} ${item.email} ${item.setter} ${item.note}`.toLowerCase();
+        return hay.includes(q);
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Nessun contatto visualizzato con i filtri attuali.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((item) => {
+        const optionsHtml = CALL_STATUSES.map(
+          (st) => `<option value="${escapeAttr(st)}" ${item.statoChiamata === st ? "selected" : ""}>${escapeHtml(st)}</option>`
+        ).join("");
+
+        return `
+          <tr>
+            <td>
+              <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo / Info" oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+            </td>
+            <td>
+              <div><strong>${escapeHtml(item.citta)}</strong></div>
+              <div class="sub">${escapeHtml(item.zona)}</div>
+            </td>
+            <td>
+              <input class="contact-mini" type="text" value="${escapeAttr(item.sito)}" placeholder="Sito web (https://...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'sito', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.telefono)}" placeholder="Telefono (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'telefono', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.email)}" placeholder="Email" oninput="updateLeadField('${escapeAttr(item.id)}', 'email', this.value)" />
+            </td>
+            <td>
+              <select class="row-select" onchange="updateLeadField('${escapeAttr(item.id)}', 'statoChiamata', this.value)">
+                ${optionsHtml}
+              </select>
+            </td>
+            <td>
+              <input class="row-input" type="text" value="${escapeAttr(item.setter)}" placeholder="Setter" oninput="updateLeadField('${escapeAttr(item.id)}', 'setter', this.value)" />
+            </td>
+            <td>
+              <input class="row-note" type="text" value="${escapeAttr(item.note)}" placeholder="Scrivi nota..." oninput="updateLeadField('${escapeAttr(item.id)}', 'note', this.value)" />
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function updateLeadField(id, field, value) {
+      const target = leads.find((r) => r.id === id);
+      if (target) {
+        target[field] = value;
+      }
+    }
+
+    function exportToExcel() {
+      if (!leads.length) {
+        alert("Carica prima i contatti per generare il file Excel.");
+        return;
+      }
+      const citta = (document.getElementById("citta").value || "citta").trim();
+      const rowsForSheet = leads.map((r, idx) => ({
+        "#": idx + 1,
+        "Nome Locale": r.nome,
+        "Citta": r.citta,
+        "Zona": r.zona,
+        "Informazioni Ristorante": r.info,
+        "Sito Web": r.sito,
+        "Telefono": r.telefono,
+        "WhatsApp": r.whatsapp,
+        "Email": r.email,
+        "Stato Chiamata": r.statoChiamata,
+        "Setter": r.setter,
+        "Note": r.note
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rowsForSheet);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Lead Ristoranti");
+
+      const safeSlug = citta.toLowerCase().replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "citta";
+      XLSX.writeFile(wb, `lead_ristoranti_${safeSlug}.xlsx`);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str).replace(/'/g, "&#39;");
+    }
+
+    document.getElementById("leadForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      loadRealContacts();
+    });
+
+    document.getElementById("addOneBtn").addEventListener("click", addManualRow);
+    document.getElementById("exportBtn").addEventListener("click", exportToExcel);
+    document.getElementById("searchInput").addEventListener("input", renderTable);
+    document.getElementById("filterStatus").addEventListener("change", renderTable);
+
+    loadRealContacts();
+  </script>
+</body>
+</html>
