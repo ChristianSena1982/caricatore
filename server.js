@@ -67,7 +67,7 @@ function formatItalianPhone(phoneStr) {
   const noPrefix = digitsOnly.replace(/^\+39/, "").replace(/^0039/, "");
   if (/^3\d{8,9}$/.test(noPrefix)) return "+39 " + noPrefix;
   if (/^0\d{5,10}$/.test(noPrefix)) return noPrefix;
-  return "";
+  return cleaned;
 }
 
 function isItalianMobile(phoneStr) {
@@ -130,10 +130,10 @@ function buildZoneVariants(zona) {
   if (!clean) return [];
   const variants = new Set([clean]);
   if (clean.endsWith("a") && clean.length > 4) {
-    variants.add(clean.slice(0, -1) + "o"); // es. salaria -> salario
+    variants.add(clean.slice(0, -1) + "o");
   }
   if (clean.endsWith("o") && clean.length > 4) {
-    variants.add(clean.slice(0, -1) + "a"); // es. salario -> salaria
+    variants.add(clean.slice(0, -1) + "a");
   }
   return Array.from(variants);
 }
@@ -161,7 +161,7 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
+async function fetchJsonSafe(url, options = {}, timeoutMs = 8500) {
   const txt = await fetchTextSafe(
     url,
     {
@@ -261,7 +261,7 @@ function parseSearchResultsHtml(html, item) {
 async function enrichFromWebsite(item) {
   if (!item.sito || (item.email && item.telefono && item.whatsapp)) return item;
 
-  const html = await fetchTextSafe(item.sito, {}, 3500);
+  const html = await fetchTextSafe(item.sito, {}, 3000);
   if (!html) return item;
 
   extractContactsFromHtml(html, item);
@@ -271,7 +271,7 @@ async function enrichFromWebsite(item) {
     if (item.email && item.telefono && item.whatsapp) break;
     try {
       const subUrl = new URL(sp, item.sito).toString();
-      const subHtml = await fetchTextSafe(subUrl, {}, 2500);
+      const subHtml = await fetchTextSafe(subUrl, {}, 2200);
       if (subHtml) extractContactsFromHtml(subHtml, item);
     } catch {
       // ignora
@@ -288,7 +288,7 @@ async function enrichFromWebSearch(item) {
   const ddgHtml = await fetchTextSafe(
     `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
     {},
-    3500
+    3000
   );
   parseSearchResultsHtml(ddgHtml, item);
   return item;
@@ -334,35 +334,34 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
   return items;
 }
 
-// Ricerca Overpass mirata: se c'e' la zona (es. Salaria), cerca sia nei tag indirizzo/quartiere sia lungo la via/area omonima!
-async function searchOverpassScoped(citta, zona = "", limit = 100) {
+async function searchOverpassUnrestricted(citta, zona = "", limit = 100) {
   const cityEsc = citta.replace(/"/g, '\\"');
   const zoneVariants = buildZoneVariants(zona);
   const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 
   const overpassQuery = zona
     ? `
-[out:json][timeout:25];
+[out:json][timeout:20];
 area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.cityArea;
 (
   way["name"~"${zoneRegex}",i](area.cityArea)->.zoneWays;
-  nwr(around.zoneWays:180)["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.cityArea);
+  nwr(around.zoneWays:220)["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.cityArea);
   nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:street"~"${zoneRegex}",i](area.cityArea);
   nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:suburb"~"${zoneRegex}",i](area.cityArea);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:neighbourhood"~"${zoneRegex}",i](area.cityArea);
   nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](area.cityArea);
 );
-out center tags ${Math.min(limit * 3, 300)};
+out center tags ${Math.min(limit * 4, 400)};
 `.trim()
     : `
-[out:json][timeout:25];
+[out:json][timeout:20];
 (
   area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
   (
-    nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
+    node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
+    way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
   );
 );
-out center tags ${Math.min(limit * 3, 300)};
+out center tags ${Math.min(limit * 4, 400)};
 `.trim();
 
   const endpoints = [
@@ -377,11 +376,11 @@ out center tags ${Math.min(limit * 3, 300)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/10.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/11.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      15000
+      12000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
@@ -393,7 +392,7 @@ out center tags ${Math.min(limit * 3, 300)};
   return [];
 }
 
-async function searchPhotonScoped(citta, zona = "") {
+async function searchPhotonUnrestricted(citta, zona = "") {
   const queries = zona
     ? [
         `ristorante ${zona} ${citta}`,
@@ -411,16 +410,17 @@ async function searchPhotonScoped(citta, zona = "") {
         `trattoria ${citta}`,
         `osteria ${citta}`,
         `bar ${citta}`,
-        `ristoranti ${citta}`
+        `pub ${citta}`,
+        `ristoranti ${citta}`,
+        `pizzerie ${citta}`
       ];
 
   const items = [];
-  const wantedCity = normalizeText(citta);
   const zoneVariants = buildZoneVariants(zona);
 
   for (const q of queries) {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=50`;
-    const data = await fetchJsonSafe(url, {}, 5500);
+    const data = await fetchJsonSafe(url, {}, 5000);
     const features = data && Array.isArray(data.features) ? data.features : [];
 
     for (const f of features) {
@@ -428,19 +428,11 @@ async function searchPhotonScoped(citta, zona = "") {
       const name = String(p.name || "").trim();
       if (!name) continue;
 
-      const country = String(p.countrycode || "").toUpperCase();
-      if (country && country !== "IT") continue;
-
-      const cityProp = normalizeText(p.city || p.town || p.village || "");
-      if (cityProp && wantedCity && !cityProp.includes(wantedCity) && !wantedCity.includes(cityProp)) {
-        continue;
-      }
-
-      const hay = normalizeText(
-        `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""}`
-      );
-      if (zoneVariants.length > 0 && !zoneVariants.some((zv) => hay.includes(zv))) {
-        continue;
+      if (zoneVariants.length > 0) {
+        const hay = normalizeText(
+          `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""} ${p.city || ""}`
+        );
+        if (!zoneVariants.some((zv) => hay.includes(zv))) continue;
       }
 
       const contacts = extractContacts(p);
@@ -463,13 +455,13 @@ async function searchPhotonScoped(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 200) break;
+    if (items.length >= 250) break;
   }
 
   return items;
 }
 
-async function searchNominatimScoped(citta, zona = "") {
+async function searchNominatimUnrestricted(citta, zona = "") {
   const queries = zona
     ? [
         `restaurant ${zona} ${citta}, Italia`,
@@ -480,7 +472,8 @@ async function searchNominatimScoped(citta, zona = "") {
     : [
         `restaurant ${citta}, Italia`,
         `pizzeria ${citta}, Italia`,
-        `trattoria ${citta}, Italia`
+        `trattoria ${citta}, Italia`,
+        `osteria ${citta}, Italia`
       ];
 
   const items = [];
@@ -490,8 +483,8 @@ async function searchNominatimScoped(citta, zona = "") {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/10.0" } },
-      6500
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/11.0" } },
+      6000
     );
     if (!Array.isArray(data)) continue;
 
@@ -501,11 +494,11 @@ async function searchNominatimScoped(citta, zona = "") {
       const addr = row.address || {};
       const extra = row.extratags || {};
 
-      const hay = normalizeText(
-        `${name} ${row.display_name || ""} ${addr.road || ""} ${addr.suburb || ""} ${addr.neighbourhood || ""}`
-      );
-      if (zoneVariants.length > 0 && !zoneVariants.some((zv) => hay.includes(zv))) {
-        continue;
+      if (zoneVariants.length > 0) {
+        const hay = normalizeText(
+          `${name} ${row.display_name || ""} ${addr.road || ""} ${addr.suburb || ""} ${addr.neighbourhood || ""}`
+        );
+        if (!zoneVariants.some((zv) => hay.includes(zv))) continue;
       }
 
       const contacts = extractContacts(extra);
@@ -529,7 +522,7 @@ async function searchNominatimScoped(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 140) break;
+    if (items.length >= 160) break;
   }
 
   return items;
@@ -571,7 +564,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v10",
+    service: "vocalis-estrattore-ristoranti-v11",
     timestamp: new Date().toISOString()
   });
 });
@@ -589,17 +582,17 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassScoped(citta, zona, limit),
-      searchPhotonScoped(citta, zona),
-      searchNominatimScoped(citta, zona)
+      searchOverpassUnrestricted(citta, zona, limit),
+      searchPhotonUnrestricted(citta, zona),
+      searchNominatimUnrestricted(citta, zona)
     ]);
 
     let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
 
-    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 30);
+    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 25);
     await Promise.all(needWebLookup.map((it) => enrichFromWebSearch(it)));
 
-    const withSites = items.filter((it) => it.sito && (!it.email || !it.telefono || !it.whatsapp)).slice(0, 35);
+    const withSites = items.filter((it) => it.sito && (!it.email || !it.telefono || !it.whatsapp)).slice(0, 30);
     await Promise.all(withSites.map((it) => enrichFromWebsite(it)));
 
     items = mergeAndDeduplicate([items], limit);
@@ -620,5 +613,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v10 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v11 in ascolto sulla porta ${PORT}`);
 });
