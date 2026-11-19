@@ -16,6 +16,14 @@ function normalizeKey(str) {
     .trim();
 }
 
+function normalizeText(str) {
+  return String(str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 function normalizeUrl(rawUrl) {
   const u = String(rawUrl || "").trim();
   if (!u) return "";
@@ -117,7 +125,20 @@ function buildInfoLine(parts = {}) {
   return [street, ...extraBits].filter(Boolean).join(" • ");
 }
 
-async function fetchTextSafe(url, options = {}, timeoutMs = 5500) {
+function buildZoneVariants(zona) {
+  const clean = normalizeText(zona);
+  if (!clean) return [];
+  const variants = new Set([clean]);
+  if (clean.endsWith("a") && clean.length > 4) {
+    variants.add(clean.slice(0, -1) + "o"); // es. salaria -> salario
+  }
+  if (clean.endsWith("o") && clean.length > 4) {
+    variants.add(clean.slice(0, -1) + "a"); // es. salario -> salaria
+  }
+  return Array.from(variants);
+}
+
+async function fetchTextSafe(url, options = {}, timeoutMs = 4500) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -237,56 +258,24 @@ function parseSearchResultsHtml(html, item) {
   extractContactsFromHtml(html, item);
 }
 
-async function guessWebsiteDomain(item) {
-  if (item.sito) return item;
-  const slug = normalizeKey(item.nome)
-    .replace(/^(ristorante|trattoria|pizzeria|osteria|bar|caffe|pub|gelateria)/, "");
-  if (!slug || slug.length < 4 || slug.length > 28) return item;
-
-  const candidates = [`https://www.${slug}.it`, `https://www.${slug}.com`];
-  for (const url of candidates) {
-    const html = await fetchTextSafe(url, {}, 3000);
-    if (html && html.length > 400 && !/dominio in vendita|domain for sale|parked/i.test(html)) {
-      item.sito = url;
-      extractContactsFromHtml(html, item);
-      return item;
-    }
-  }
-  return item;
-}
-
 async function enrichFromWebsite(item) {
   if (!item.sito || (item.email && item.telefono && item.whatsapp)) return item;
 
-  const html = await fetchTextSafe(item.sito, {}, 4500);
+  const html = await fetchTextSafe(item.sito, {}, 3500);
   if (!html) return item;
 
   extractContactsFromHtml(html, item);
 
-  const subPaths = ["/contatti", "/contact", "/contatti.html", "/chi-siamo", "/info"];
-  const foundLinks = [];
-  const linkMatches = html.match(/href=["']([^"']*(?:contatt|contact|info|dove-siamo|chi-siamo)[^"']*)["']/gi) || [];
-  for (const m of linkMatches) {
-    const rawPath = m.replace(/^href=["']/i, "").replace(/["']$/, "");
-    try {
-      foundLinks.push(new URL(rawPath, item.sito).toString());
-    } catch {
-      // ignora
-    }
-  }
+  const subPaths = ["/contatti", "/contact", "/info"];
   for (const sp of subPaths) {
+    if (item.email && item.telefono && item.whatsapp) break;
     try {
-      foundLinks.push(new URL(sp, item.sito).toString());
+      const subUrl = new URL(sp, item.sito).toString();
+      const subHtml = await fetchTextSafe(subUrl, {}, 2500);
+      if (subHtml) extractContactsFromHtml(subHtml, item);
     } catch {
       // ignora
     }
-  }
-
-  const uniqueLinks = Array.from(new Set(foundLinks)).slice(0, 3);
-  for (const linkUrl of uniqueLinks) {
-    if (item.email && item.telefono && item.whatsapp) break;
-    const subHtml = await fetchTextSafe(linkUrl, {}, 3500);
-    if (subHtml) extractContactsFromHtml(subHtml, item);
   }
 
   return item;
@@ -296,22 +285,16 @@ async function enrichFromWebSearch(item) {
   if (item.sito && item.telefono) return item;
 
   const q = `"${item.nome}" ${item.citta} telefono`;
-  const [ddgHtml, bingHtml] = await Promise.all([
-    fetchTextSafe(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, {}, 5000),
-    fetchTextSafe(`https://www.bing.com/search?q=${encodeURIComponent(q)}`, {}, 5000)
-  ]);
-
+  const ddgHtml = await fetchTextSafe(
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
+    {},
+    3500
+  );
   parseSearchResultsHtml(ddgHtml, item);
-  parseSearchResultsHtml(bingHtml, item);
-
-  if (!item.sito) {
-    await guessWebsiteDomain(item);
-  }
-
   return item;
 }
 
-function mapOverpassElements(elements, citta, zona) {
+function mapOverpassElements(elements, citta, zonaRichiesta) {
   const items = [];
   for (const el of elements) {
     const tags = el.tags || {};
@@ -323,13 +306,9 @@ function mapOverpassElements(elements, citta, zona) {
       tags["addr:neighbourhood"] ||
       tags["addr:city_district"] ||
       tags["addr:quarter"] ||
+      tags["addr:street"] ||
+      zonaRichiesta ||
       "Centro";
-
-    if (zona) {
-      const zLow = zona.toLowerCase();
-      const hayZone = `${detectedZone} ${tags["addr:street"] || ""} ${name}`.toLowerCase();
-      if (!hayZone.includes(zLow)) continue;
-    }
 
     const contacts = extractContacts(tags);
     const info = buildInfoLine({
@@ -345,7 +324,7 @@ function mapOverpassElements(elements, citta, zona) {
       nome: name,
       info: info || `Locale (${tags.amenity || "ristorazione"})`,
       citta,
-      zona: zona || detectedZone,
+      zona: zonaRichiesta || detectedZone,
       sito: contacts.website,
       telefono: contacts.phone,
       whatsapp: contacts.whatsapp,
@@ -355,10 +334,27 @@ function mapOverpassElements(elements, citta, zona) {
   return items;
 }
 
-// Query Overpass ampia su tutti i locali della citta' (anche citta' medie/piccole come Terni)
-async function searchOverpassAll(citta, zona = "", limit = 100) {
+// Ricerca Overpass mirata: se c'e' la zona (es. Salaria), cerca sia nei tag indirizzo/quartiere sia lungo la via/area omonima!
+async function searchOverpassScoped(citta, zona = "", limit = 100) {
   const cityEsc = citta.replace(/"/g, '\\"');
-  const overpassQuery = `
+  const zoneVariants = buildZoneVariants(zona);
+  const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+
+  const overpassQuery = zona
+    ? `
+[out:json][timeout:25];
+area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.cityArea;
+(
+  way["name"~"${zoneRegex}",i](area.cityArea)->.zoneWays;
+  nwr(around.zoneWays:180)["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.cityArea);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:street"~"${zoneRegex}",i](area.cityArea);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:suburb"~"${zoneRegex}",i](area.cityArea);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:neighbourhood"~"${zoneRegex}",i](area.cityArea);
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](area.cityArea);
+);
+out center tags ${Math.min(limit * 3, 300)};
+`.trim()
+    : `
 [out:json][timeout:25];
 (
   area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
@@ -366,7 +362,7 @@ async function searchOverpassAll(citta, zona = "", limit = 100) {
     nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
   );
 );
-out center tags ${Math.min(limit * 3, 350)};
+out center tags ${Math.min(limit * 3, 300)};
 `.trim();
 
   const endpoints = [
@@ -381,7 +377,7 @@ out center tags ${Math.min(limit * 3, 350)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/8.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/10.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
@@ -397,14 +393,17 @@ out center tags ${Math.min(limit * 3, 350)};
   return [];
 }
 
-async function searchPhoton(citta, zona = "") {
+async function searchPhotonScoped(citta, zona = "") {
   const queries = zona
     ? [
         `ristorante ${zona} ${citta}`,
         `pizzeria ${zona} ${citta}`,
         `trattoria ${zona} ${citta}`,
         `osteria ${zona} ${citta}`,
-        `bar ${zona} ${citta}`
+        `bar ${zona} ${citta}`,
+        `bistrot ${zona} ${citta}`,
+        `pub ${zona} ${citta}`,
+        `via ${zona} ${citta} ristorante`
       ]
     : [
         `ristorante ${citta}`,
@@ -416,11 +415,12 @@ async function searchPhoton(citta, zona = "") {
       ];
 
   const items = [];
-  const wantedCity = citta.toLowerCase().trim();
+  const wantedCity = normalizeText(citta);
+  const zoneVariants = buildZoneVariants(zona);
 
   for (const q of queries) {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=50`;
-    const data = await fetchJsonSafe(url, {}, 6500);
+    const data = await fetchJsonSafe(url, {}, 5500);
     const features = data && Array.isArray(data.features) ? data.features : [];
 
     for (const f of features) {
@@ -431,8 +431,15 @@ async function searchPhoton(citta, zona = "") {
       const country = String(p.countrycode || "").toUpperCase();
       if (country && country !== "IT") continue;
 
-      const cityProp = String(p.city || p.town || p.village || "").toLowerCase();
+      const cityProp = normalizeText(p.city || p.town || p.village || "");
       if (cityProp && wantedCity && !cityProp.includes(wantedCity) && !wantedCity.includes(cityProp)) {
+        continue;
+      }
+
+      const hay = normalizeText(
+        `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""}`
+      );
+      if (zoneVariants.length > 0 && !zoneVariants.some((zv) => hay.includes(zv))) {
         continue;
       }
 
@@ -449,31 +456,42 @@ async function searchPhoton(citta, zona = "") {
         nome: name,
         info: info || `Locale (${p.osm_value || "ristorazione"})`,
         citta,
-        zona: zona || p.district || p.locality || p.suburb || "Centro",
+        zona: zona || p.district || p.locality || p.suburb || p.street || "Centro",
         sito: contacts.website,
         telefono: contacts.phone,
         whatsapp: contacts.whatsapp,
         email: contacts.email
       });
     }
-    if (items.length >= 160) break;
+    if (items.length >= 200) break;
   }
 
   return items;
 }
 
-async function searchNominatim(citta, zona = "") {
+async function searchNominatimScoped(citta, zona = "") {
   const queries = zona
-    ? [`restaurant ${zona} ${citta}, Italia`, `pizzeria ${zona} ${citta}, Italia`]
-    : [`restaurant ${citta}, Italia`, `pizzeria ${citta}, Italia`, `trattoria ${citta}, Italia`];
+    ? [
+        `restaurant ${zona} ${citta}, Italia`,
+        `pizzeria ${zona} ${citta}, Italia`,
+        `trattoria ${zona} ${citta}, Italia`,
+        `bar ${zona} ${citta}, Italia`
+      ]
+    : [
+        `restaurant ${citta}, Italia`,
+        `pizzeria ${citta}, Italia`,
+        `trattoria ${citta}, Italia`
+      ];
 
   const items = [];
+  const zoneVariants = buildZoneVariants(zona);
+
   for (const q of queries) {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/8.0" } },
-      7500
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/10.0" } },
+      6500
     );
     if (!Array.isArray(data)) continue;
 
@@ -482,6 +500,14 @@ async function searchNominatim(citta, zona = "") {
       if (!name) continue;
       const addr = row.address || {};
       const extra = row.extratags || {};
+
+      const hay = normalizeText(
+        `${name} ${row.display_name || ""} ${addr.road || ""} ${addr.suburb || ""} ${addr.neighbourhood || ""}`
+      );
+      if (zoneVariants.length > 0 && !zoneVariants.some((zv) => hay.includes(zv))) {
+        continue;
+      }
+
       const contacts = extractContacts(extra);
       const info = buildInfoLine({
         street: addr.road || addr.pedestrian || "",
@@ -496,14 +522,14 @@ async function searchNominatim(citta, zona = "") {
         nome: name,
         info: info || `Locale (${row.type || "ristorazione"})`,
         citta,
-        zona: zona || addr.suburb || addr.neighbourhood || addr.city_district || "Centro",
+        zona: zona || addr.suburb || addr.neighbourhood || addr.city_district || addr.road || "Centro",
         sito: contacts.website,
         telefono: contacts.phone,
         whatsapp: contacts.whatsapp,
         email: contacts.email
       });
     }
-    if (items.length >= 100) break;
+    if (items.length >= 140) break;
   }
 
   return items;
@@ -528,9 +554,6 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
         if ((!existing.info || existing.info.length < 20) && item.info && item.info.length > existing.info.length) {
           existing.info = item.info;
         }
-        if ((!existing.zona || existing.zona === "Centro") && item.zona && item.zona !== "Centro") {
-          existing.zona = item.zona;
-        }
       }
     }
   }
@@ -548,7 +571,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v8",
+    service: "vocalis-estrattore-ristoranti-v10",
     timestamp: new Date().toISOString()
   });
 });
@@ -566,23 +589,18 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassAll(citta, zona, limit),
-      searchPhoton(citta, zona),
-      searchNominatim(citta, zona)
+      searchOverpassScoped(citta, zona, limit),
+      searchPhotonScoped(citta, zona),
+      searchNominatimScoped(citta, zona)
     ]);
 
     let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
 
-    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 40);
-    for (let i = 0; i < needWebLookup.length; i += 10) {
-      const batch = needWebLookup.slice(i, i + 10);
-      await Promise.all(batch.map((it) => enrichFromWebSearch(it)));
-    }
+    const needWebLookup = items.filter((it) => !it.sito || !it.telefono).slice(0, 30);
+    await Promise.all(needWebLookup.map((it) => enrichFromWebSearch(it)));
 
-    for (let i = 0; i < items.length; i += 10) {
-      const batch = items.slice(i, i + 10);
-      await Promise.all(batch.map((it) => enrichFromWebsite(it)));
-    }
+    const withSites = items.filter((it) => it.sito && (!it.email || !it.telefono || !it.whatsapp)).slice(0, 35);
+    await Promise.all(withSites.map((it) => enrichFromWebsite(it)));
 
     items = mergeAndDeduplicate([items], limit);
 
@@ -602,5 +620,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v8 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v10 in ascolto sulla porta ${PORT}`);
 });
