@@ -83,20 +83,31 @@ function isInsideItaly(lat, lon, countryCode = "", addressText = "", phone = "",
   return !foreignTokens.some((ft) => lowAddr.includes(ft));
 }
 
-// Accetta solo ristoranti e pizzerie (escludendo bar, pub, gelaterie, fast food generici)
 function isRestaurantOrPizzeria(name = "", amenity = "", cuisine = "") {
   const aLow = normalizeText(amenity);
   const cLow = normalizeText(cuisine);
   const nLow = normalizeText(name);
 
-  if (["bar", "pub", "cafe", "ice_cream", "biergarten"].includes(aLow)) {
-    return false;
+  if (["bar", "pub", "cafe", "ice_cream", "biergarten", "fast_food"].includes(aLow)) {
+    const looksLikePizzaOrRisto =
+      cLow.includes("pizza") ||
+      nLow.includes("pizzeria") ||
+      nLow.includes("pizza") ||
+      nLow.includes("ristorante") ||
+      nLow.includes("trattoria") ||
+      nLow.includes("osteria");
+    if (!looksLikePizzaOrRisto) return false;
   }
-  if (aLow === "restaurant") return true;
-  if (cLow.includes("pizza") || nLow.includes("pizzeria") || nLow.includes("pizza") || nLow.includes("ristorante") || nLow.includes("trattoria") || nLow.includes("osteria")) {
-    return true;
-  }
-  return false;
+
+  return (
+    aLow === "restaurant" ||
+    cLow.includes("pizza") ||
+    nLow.includes("pizzeria") ||
+    nLow.includes("pizza") ||
+    nLow.includes("ristorante") ||
+    nLow.includes("trattoria") ||
+    nLow.includes("osteria")
+  );
 }
 
 function extractCap(postcode = "", infoText = "") {
@@ -215,7 +226,7 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 8000) {
   }
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 15000) {
+async function fetchJsonSafe(url, options = {}, timeoutMs = 14000) {
   const txt = await fetchTextSafe(
     url,
     {
@@ -302,11 +313,11 @@ async function runOverpassQuery(overpassQuery) {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/18.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/20.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      15000
+      14000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
@@ -328,18 +339,18 @@ const ROMA_SECTORS = [
   "41.8320,12.4680"
 ];
 
-async function searchOverpassRestaurantsAndPizzerias(citta, zona = "", limit = 2000) {
+async function searchOverpassRestaurantsPizzerias(citta, zona = "", limit = 200) {
   const cityEsc = citta.replace(/"/g, '\\"');
   const isRoma = normalizeText(citta) === "roma";
   const zoneVariants = buildZoneVariants(zona);
   const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const chunkCap = Math.min(Math.max(limit, 500), 2500);
+  const chunkCap = Math.min(Math.max(limit * 2, 400), 1500);
 
   if (isRoma) {
     const queries = zona
       ? [
           `
-[out:json][timeout:25];
+[out:json][timeout:20];
 (
   nwr["amenity"="restaurant"]["name"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
   nwr["amenity"="restaurant"]["addr:street"~"${zoneRegex}",i](41.68,12.22,42.10,12.80);
@@ -352,12 +363,12 @@ out center tags ${chunkCap};
         ]
       : ROMA_SECTORS.map(
           (pt) => `
-[out:json][timeout:20];
+[out:json][timeout:18];
 (
-  node["amenity"="restaurant"]["name"](around:3500,${pt});
-  way["amenity"="restaurant"]["name"](around:3500,${pt});
-  node["cuisine"~"pizza",i]["name"](around:3500,${pt});
-  way["cuisine"~"pizza",i]["name"](around:3500,${pt});
+  node["amenity"="restaurant"]["name"](around:3200,${pt});
+  way["amenity"="restaurant"]["name"](around:3200,${pt});
+  node["cuisine"~"pizza",i]["name"](around:3200,${pt});
+  way["cuisine"~"pizza",i]["name"](around:3200,${pt});
 );
 out center tags ${chunkCap};
 `.trim()
@@ -373,7 +384,7 @@ out center tags ${chunkCap};
   }
 
   const q = `
-[out:json][timeout:25];
+[out:json][timeout:20];
 area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.a;
 (
   node["amenity"="restaurant"]["name"](area.a);
@@ -388,7 +399,7 @@ out center tags ${chunkCap};
   return mapOverpassElements(els, citta, zona);
 }
 
-async function searchPhotonRestaurantsAndPizzerias(citta, zona = "") {
+async function searchPhotonRestaurantsPizzerias(citta, zona = "") {
   const queries = zona
     ? [
         `ristorante ${zona} ${citta} italia`,
@@ -467,7 +478,7 @@ async function searchPhotonRestaurantsAndPizzerias(citta, zona = "") {
   return lists.flat();
 }
 
-async function searchNominatimRestaurantsAndPizzerias(citta, zona = "") {
+async function searchNominatimRestaurantsPizzerias(citta, zona = "") {
   const queries = zona
     ? [
         `restaurant ${zona} ${citta}, Italia`,
@@ -488,7 +499,7 @@ async function searchNominatimRestaurantsAndPizzerias(citta, zona = "") {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&countrycodes=it&limit=50`;
       const data = await fetchJsonSafe(
         url,
-        { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/18.0" } },
+        { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/20.0" } },
         7500
       );
       if (!Array.isArray(data)) return [];
@@ -545,7 +556,7 @@ async function searchNominatimRestaurantsAndPizzerias(citta, zona = "") {
   return lists.flat();
 }
 
-function mergeSortByCapAndDeduplicate(pools = [], limit = 2000) {
+function mergeSortByCapAndDeduplicate(pools = [], limit = 200) {
   const byKey = new Map();
 
   for (const pool of pools) {
@@ -585,7 +596,7 @@ function mergeSortByCapAndDeduplicate(pools = [], limit = 2000) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v18",
+    service: "vocalis-estrattore-ristoranti-v20-final",
     timestamp: new Date().toISOString()
   });
 });
@@ -594,7 +605,7 @@ app.get("/api/restaurants", async (req, res) => {
   try {
     const cittaRaw = String(req.query.citta || "").trim();
     const zona = String(req.query.zona || "").trim();
-    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit || "2000", 10) || 2000));
+    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit || "200", 10) || 200));
 
     if (!cittaRaw) {
       return res.status(400).json({ error: "Parametro 'citta' obbligatorio." });
@@ -603,9 +614,9 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassRestaurantsAndPizzerias(citta, zona, limit),
-      searchPhotonRestaurantsAndPizzerias(citta, zona),
-      searchNominatimRestaurantsAndPizzerias(citta, zona)
+      searchOverpassRestaurantsPizzerias(citta, zona, limit),
+      searchPhotonRestaurantsPizzerias(citta, zona),
+      searchNominatimRestaurantsPizzerias(citta, zona)
     ]);
 
     const items = mergeSortByCapAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
@@ -626,5 +637,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v18 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v20 (Final) in ascolto sulla porta ${PORT}`);
 });
