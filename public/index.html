@@ -3,13 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Artsoftware2022 • Vocalis — Ristoranti &amp; Pizzerie (.xlsx)</title>
+  <title>Vocalis • Gestione Lead, Richiami &amp; Storico</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
-    }
-
+    *, *::before, *::after { box-sizing: border-box; }
     :root {
       --bg: #eef2f6;
       --card: #ffffff;
@@ -17,857 +14,625 @@
       --muted: #64748b;
       --border: #dbe3ec;
       --primary: #16324f;
-      --primary-hover: #0e2236;
       --accent: #0f766e;
-      --accent-hover: #115e59;
-      --google: #1d4ed8;
+      --warn: #b45309;
+      --warn-bg: #fef3c7;
+      --danger: #be123c;
       --danger-bg: #fff1f2;
-      --danger-text: #be123c;
-      --danger-border: #fecdd3;
-      --radius: 12px;
     }
-
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: 16px;
-      line-height: 1.4;
+      padding: 14px;
     }
-
-    .app {
-      max-width: 1480px;
-      margin: 0 auto;
-    }
-
-    .grid-main {
+    .wrap { max-width: 1480px; margin: 0 auto; }
+    .grid {
       display: grid;
-      grid-template-columns: 350px minmax(0, 1fr);
-      gap: 18px;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 16px;
       align-items: start;
     }
-
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px;
-      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
       min-width: 0;
     }
-
-    .badge {
-      display: inline-block;
-      background: #e6f7f5;
-      color: #0f766e;
-      font-size: 11.5px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-      margin-bottom: 8px;
-    }
-
-    h1 {
-      margin: 0 0 6px;
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    h2 {
-      margin: 0 0 4px;
-      font-size: 17px;
-      font-weight: 700;
-    }
-
-    .desc {
-      margin: 0 0 14px;
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-
-    .field {
-      margin-bottom: 12px;
-    }
-
-    .row-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: #1e293b;
-    }
-
+    h1 { margin: 0 0 4px; font-size: 19px; }
+    h2 { margin: 0 0 4px; font-size: 16px; }
+    .sub { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+    .field { margin-bottom: 10px; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
     input, select, textarea {
       width: 100%;
-      padding: 9px 10px;
+      padding: 8px 10px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       font-size: 13px;
       font-family: inherit;
+      background: #fff;
       color: var(--text);
-      background: #ffffff;
     }
-
-    textarea {
-      min-height: 62px;
-      resize: vertical;
-    }
-
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(22, 50, 79, 0.12);
-    }
-
+    textarea { min-height: 76px; resize: vertical; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .btn {
       width: 100%;
-      padding: 11px 14px;
+      padding: 10px 12px;
       border: none;
       border-radius: 8px;
-      font-size: 13.5px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: background 0.15s ease;
     }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: var(--primary-hover);
-    }
-
-    .btn-export {
-      background: var(--accent);
-      color: #fff;
-      margin-top: 8px;
-    }
-
-    .btn-export:hover:not(:disabled) {
-      background: var(--accent-hover);
-    }
-
-    .btn-sm {
-      width: auto;
-      padding: 8px 12px;
-      font-size: 12px;
-    }
-
-    .btn-secondary {
-      background: #334155;
-      color: #fff;
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background: #1e293b;
-    }
-
-    .btn-danger {
-      background: var(--danger-bg);
-      color: var(--danger-text);
-      border: 1px solid var(--danger-border);
-    }
-
-    .btn-danger:hover:not(:disabled) {
-      background: #ffe4e6;
-    }
-
-    .status-box {
-      margin-top: 12px;
-      padding: 10px 12px;
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-accent { background: var(--accent); color: #fff; margin-top: 8px; }
+    .btn-dark { background: #334155; color: #fff; width: auto; padding: 8px 12px; font-size: 12px; }
+    .btn-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid #fde68a; width: auto; padding: 8px 12px; font-size: 12px; }
+    .msg {
+      margin-top: 10px;
+      padding: 9px 11px;
       border-radius: 8px;
       background: #f8fafc;
       border: 1px solid var(--border);
       font-size: 12px;
-      color: #334155;
     }
-
-    .top-bar {
+    .bar {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px;
+      align-items: center;
       flex-wrap: wrap;
+      gap: 8px;
       margin-bottom: 12px;
     }
-
-    .actions-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .stats-bar {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .stat-pill {
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .pill {
       background: #f8fafc;
       border: 1px solid var(--border);
-      border-radius: 8px;
       padding: 6px 10px;
+      border-radius: 8px;
       font-size: 12px;
-      color: #334155;
     }
-
-    .stat-pill strong {
-      color: var(--primary);
-    }
-
-    .filters-bar {
+    .pill.alert { background: var(--warn-bg); border-color: #fcd34d; color: var(--warn); font-weight: 700; }
+    .filters {
       display: grid;
-      grid-template-columns: minmax(200px, 1fr) 220px;
-      gap: 10px;
-      margin-bottom: 14px;
+      grid-template-columns: 1fr 180px 180px 200px;
+      gap: 8px;
+      margin-bottom: 12px;
     }
-
     .table-wrap {
       border: 1px solid var(--border);
       border-radius: 10px;
       overflow-x: auto;
-      max-height: 760px;
-      background: #fff;
+      max-height: 680px;
     }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12.5px;
-      min-width: 1040px;
-    }
-
-    thead th {
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 1080px; }
+    th {
       background: var(--primary);
       color: #fff;
       text-align: left;
-      padding: 10px;
-      font-weight: 600;
+      padding: 9px 10px;
       position: sticky;
       top: 0;
       z-index: 2;
-      white-space: nowrap;
     }
-
-    tbody td {
-      padding: 9px 10px;
-      border-top: 1px solid var(--border);
-      vertical-align: top;
-    }
-
-    tbody tr:nth-child(even) td {
-      background: #f8fafc;
-    }
-
-    .cell-input {
-      width: 100%;
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 6px;
-      margin-top: 4px;
-    }
-
-    .cell-input:first-child {
-      margin-top: 0;
-    }
-
-    .cell-title {
-      font-weight: 600;
-    }
-
-    .action-links {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 6px;
-    }
-
-    .action-link {
-      font-size: 11.5px;
-      font-weight: 600;
-      text-decoration: none;
-      color: var(--accent);
-    }
-
-    .action-link:hover {
-      text-decoration: underline;
-    }
-
-    .action-link.google {
-      color: var(--google);
-    }
-
-    .cap-badge {
+    td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: top; }
+    tr.due-row td { background: #fffbeb; }
+    .mini { width: 100%; padding: 6px 8px; font-size: 12px; border-radius: 6px; margin-top: 4px; }
+    .mini:first-child { margin-top: 0; }
+    .cap-tag {
       display: inline-block;
-      font-weight: 700;
-      font-size: 12px;
-      color: var(--primary);
       background: #e2e8f0;
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 11.5px;
       padding: 2px 7px;
       border-radius: 6px;
       margin-bottom: 4px;
     }
-
-    .sub-text {
-      font-size: 11.5px;
-      color: var(--muted);
+    .links { display: flex; gap: 10px; margin-top: 5px; font-size: 11.5px; font-weight: 600; }
+    .links a { color: #1d4ed8; text-decoration: none; }
+    .links a.wa { color: #0f766e; }
+    .history-box {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
     }
-
-    /* Tablet */
-    @media (max-width: 1024px) {
-      .grid-main {
-        grid-template-columns: 1fr;
-      }
-      .table-wrap {
-        max-height: none;
-      }
+    .history-list {
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 8px;
+      font-size: 12px;
     }
-
-    /* Telefono: schede pulite senza scroll orizzontale stretto */
+    .h-item {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+    }
+    .h-item:last-child { margin-bottom: 0; }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+      .filters { grid-template-columns: 1fr; }
+    }
     @media (max-width: 768px) {
-      body {
-        padding: 10px;
-      }
-
-      .card {
-        padding: 14px;
-        border-radius: 10px;
-      }
-
-      .row-2,
-      .filters-bar {
-        grid-template-columns: 1fr;
-      }
-
-      .actions-row {
-        width: 100%;
-      }
-
-      .actions-row .btn-sm {
-        flex: 1 1 auto;
-      }
-
-      .table-wrap {
-        border: none;
-        background: transparent;
-        overflow: visible;
-      }
-
-      table {
-        min-width: 0;
-        display: block;
-      }
-
-      thead {
-        display: none;
-      }
-
-      tbody {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      tbody tr {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        background: #ffffff !important;
+      body { padding: 10px; }
+      .row-2 { grid-template-columns: 1fr; }
+      .table-wrap { border: none; overflow: visible; max-height: none; }
+      table, thead, tbody, tr, td { display: block; min-width: 0; }
+      thead { display: none; }
+      tr {
+        background: #fff !important;
         border: 1px solid var(--border);
         border-radius: 10px;
-        padding: 12px;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        padding: 10px;
+        margin-bottom: 10px;
       }
-
-      tbody td {
-        display: block;
-        padding: 0;
-        border: none;
-      }
-
-      input, select, textarea, .cell-input {
-        font-size: 14px;
-        padding: 9px 10px;
-      }
+      td { border: none; padding: 4px 0; }
+      input, select, textarea, .mini { font-size: 14px; padding: 9px; }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="grid-main">
-      <!-- Pannello sinistro filtri -->
+  <div class="wrap">
+    <div class="grid">
+      <!-- Inserimento manuale / incolla veloce -->
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis</span>
-        <h1>Ristoranti &amp; Pizzerie</h1>
-        <p class="desc">Lista ordinata per CAP, <strong>Apri su Google ↗</strong> per i numeri, salvataggio automatico ed export <strong>.xlsx</strong>.</p>
+        <h1>Inserimento Lead</h1>
+        <p class="sub">Aggiungi righe a mano o incolla una lista (una riga per locale).</p>
 
-        <form id="leadForm">
-          <div class="field">
-            <label for="citta">Città italiana *</label>
-            <input id="citta" name="citta" type="text" value="Roma" list="italianCities" placeholder="Es. Roma, Milano, Parma..." required />
-            <datalist id="italianCities">
-              <option value="Ancona"></option>
-              <option value="Bari"></option>
-              <option value="Bologna"></option>
-              <option value="Cagliari"></option>
-              <option value="Catania"></option>
-              <option value="Cerveteri"></option>
-              <option value="Firenze"></option>
-              <option value="Genova"></option>
-              <option value="Ladispoli"></option>
-              <option value="Lecce"></option>
-              <option value="Livorno"></option>
-              <option value="Milano"></option>
-              <option value="Modena"></option>
-              <option value="Napoli"></option>
-              <option value="Padova"></option>
-              <option value="Palermo"></option>
-              <option value="Parma"></option>
-              <option value="Perugia"></option>
-              <option value="Pisa"></option>
-              <option value="Rimini"></option>
-              <option value="Roma"></option>
-              <option value="Salerno"></option>
-              <option value="Sassari"></option>
-              <option value="Siena"></option>
-              <option value="Terni"></option>
-              <option value="Torino"></option>
-              <option value="Trento"></option>
-              <option value="Trieste"></option>
-              <option value="Venezia"></option>
-              <option value="Verona"></option>
-            </datalist>
-          </div>
-
+        <form id="quickForm">
           <div class="row-2">
             <div class="field">
-              <label for="zona">Zona / Quartiere</label>
-              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Prati..." />
+              <label for="defCitta">Città predefinita</label>
+              <input id="defCitta" type="text" value="Roma" />
             </div>
             <div class="field">
-              <label for="limit">Numero contatti</label>
-              <select id="limit" name="limit">
-                <option value="50">50 contatti</option>
-                <option value="100" selected>100 contatti</option>
-                <option value="200">200 contatti</option>
-                <option value="500">500 contatti</option>
-                <option value="1000">1000 contatti</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row-2">
-            <div class="field">
-              <label for="setter">Setter (anche più nomi, virgola)</label>
-              <input id="setter" name="setter" type="text" placeholder="Es. Eliana, Luca" />
-            </div>
-            <div class="field">
-              <label for="statoIniziale">Stato iniziale</label>
-              <select id="statoIniziale" name="statoIniziale">
-                <option value="Da chiamare" selected>Da chiamare</option>
-                <option value="Non risponde">Non risponde</option>
-                <option value="Richiamare">Richiamare</option>
-                <option value="Segreteria / Occupato">Segreteria / Occupato</option>
-                <option value="Appuntamento fissato">Appuntamento fissato</option>
-                <option value="Non interessato">Non interessato</option>
-                <option value="Numero errato">Numero errato</option>
-              </select>
+              <label for="defSetter">Setter predefinito</label>
+              <input id="defSetter" type="text" placeholder="Es. Eliana" />
             </div>
           </div>
 
           <div class="field">
-            <label for="noteIniziali">Note iniziali (opzionale)</label>
-            <textarea id="noteIniziali" name="noteIniziali" placeholder="Es. Chiedere del titolare..."></textarea>
+            <label for="pasteList">Incolla righe veloci (opzionale)</label>
+            <textarea id="pasteList" placeholder="Formato per riga:&#10;Pizzeria Da Mario | 00153 | Roma | Trastevere | 06123456 | +393331234567 | Richiamare alle 17"></textarea>
           </div>
 
-          <button id="loadBtn" type="submit" class="btn btn-primary">Carica Contatti</button>
-          <button id="exportBtn" type="button" class="btn btn-export">Scarica Excel (.xlsx)</button>
-
-          <div id="statusBox" class="status-box">Pronto. Premi <strong>Carica Contatti</strong>.</div>
+          <button type="submit" class="btn btn-primary">Aggiungi e Salva</button>
+          <button type="button" id="exportBtn" class="btn btn-accent">Scarica Excel (.xlsx)</button>
         </form>
+
+        <div id="msgBox" class="msg">Pronto. Aggiungi una riga o incolla una lista.</div>
       </div>
 
-      <!-- Pannello destro lista setter -->
+      <!-- Lista lead + richiami + storico -->
       <div class="card">
-        <div class="top-bar">
+        <div class="bar">
           <div>
-            <h2>Lista Lead &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Ogni modifica resta salvata in automatico nel browser.</p>
+            <h2>Lead &amp; Richiami da Fare</h2>
+            <p class="sub" style="margin:0;">Ordinati per CAP • Salvataggio su DB + browser.</p>
           </div>
-          <div class="actions-row">
-            <button id="addOneBtn" type="button" class="btn btn-secondary btn-sm">+ Aggiungi riga</button>
-            <button id="clearStorageBtn" type="button" class="btn btn-danger btn-sm">Svuota</button>
+          <div class="actions">
+            <button type="button" id="addRowBtn" class="btn-dark">+ Nuova riga vuota</button>
+            <button type="button" id="clearBtn" class="btn-warn">Svuota tutto</button>
           </div>
         </div>
 
-        <div id="statsBar" class="stats-bar">
-          <div class="stat-pill">Totale: <strong id="statTotal">0</strong></div>
-          <div class="stat-pill">Da chiamare: <strong id="statTodo">0</strong></div>
-          <div class="stat-pill">Appuntamenti: <strong id="statBooked">0</strong></div>
+        <div class="pills">
+          <div class="pill">Totale: <strong id="cTotal">0</strong></div>
+          <div class="pill alert">Richiami oggi/scaduti: <strong id="cDue">0</strong></div>
+          <div class="pill">Appuntamenti: <strong id="cBooked">0</strong></div>
         </div>
 
-        <div class="filters-bar">
-          <input id="searchInput" type="text" placeholder="Cerca locale, CAP, telefono, setter, note..." />
-          <select id="filterStatus">
+        <div class="filters">
+          <input id="qSearch" type="text" placeholder="Cerca locale, CAP, telefono, setter, note..." />
+          <select id="fStatus">
             <option value="">Tutti gli stati</option>
             <option value="Da chiamare">Da chiamare</option>
-            <option value="Non risponde">Non risponde</option>
             <option value="Richiamare">Richiamare</option>
-            <option value="Segreteria / Occupato">Segreteria / Occupato</option>
+            <option value="Non risponde">Non risponde</option>
             <option value="Appuntamento fissato">Appuntamento fissato</option>
             <option value="Non interessato">Non interessato</option>
             <option value="Numero errato">Numero errato</option>
           </select>
+          <select id="fCallback">
+            <option value="">Tutti i lead</option>
+            <option value="oggi_o_scaduti">Richiami oggi / scaduti</option>
+            <option value="tutti_richiami">Tutti i richiami fissati</option>
+          </select>
+          <input id="fSetter" type="text" placeholder="Filtra per setter..." />
         </div>
 
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style="width:28%;">Locale &amp; Info</th>
-                <th style="width:14%;">CAP &amp; Zona</th>
-                <th style="width:24%;">Recapiti</th>
-                <th style="width:13%;">Stato</th>
-                <th style="width:10%;">Setter</th>
-                <th style="width:11%;">Note</th>
+                <th style="width:25%;">Locale &amp; CAP</th>
+                <th style="width:22%;">Telefono &amp; WhatsApp</th>
+                <th style="width:15%;">Stato &amp; Risposta</th>
+                <th style="width:17%;">Data/Ora Richiamo</th>
+                <th style="width:9%;">Setter</th>
+                <th style="width:10%;">Note</th>
               </tr>
             </thead>
-            <tbody id="leadsBody"></tbody>
+            <tbody id="tbody"></tbody>
           </table>
+        </div>
+
+        <div class="history-box">
+          <div class="bar" style="margin-bottom:8px;">
+            <div>
+              <h2>Storico Risposte &amp; Chiamate</h2>
+              <p class="sub" style="margin:0;">Ogni cambio di stato, risposta, nota o richiamo resta registrato.</p>
+            </div>
+            <button type="button" id="refreshHistBtn" class="btn-dark">Aggiorna storico</button>
+          </div>
+          <div id="historyList" class="history-list">Nessuna attività registrata al momento.</div>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY = "vocalis_leads_autosave_v21";
-    const CALL_STATUSES = [
+    const LOCAL_KEY = "vocalis_manual_leads_v1";
+    const HIST_KEY = "vocalis_manual_history_v1";
+    const STATUSES = [
       "Da chiamare",
-      "Non risponde",
       "Richiamare",
-      "Segreteria / Occupato",
+      "Non risponde",
       "Appuntamento fissato",
       "Non interessato",
       "Numero errato"
     ];
 
     let leads = [];
+    let history = [];
 
-    function updateStats() {
-      const total = leads.length;
-      const todo = leads.filter((x) => x.statoChiamata === "Da chiamare").length;
-      const booked = leads.filter((x) => x.statoChiamata === "Appuntamento fissato").length;
-      document.getElementById("statTotal").textContent = total;
-      document.getElementById("statTodo").textContent = todo;
-      document.getElementById("statBooked").textContent = booked;
+    function saveLocal() {
+      try {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(leads));
+        localStorage.setItem(HIST_KEY, JSON.stringify(history));
+      } catch {}
     }
 
-    function saveLeadsToStorage() {
+    function loadLocal() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          updatedAt: new Date().toISOString(),
-          citta: document.getElementById("citta").value || "",
-          zona: document.getElementById("zona").value || "",
-          setter: document.getElementById("setter").value || "",
-          leads
-        }));
+        leads = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]");
+        history = JSON.parse(localStorage.getItem(HIST_KEY) || "[]");
       } catch {
-        // ignora quota storage
+        leads = [];
+        history = [];
       }
-      updateStats();
     }
 
-    function restoreLeadsFromStorage() {
+    async function syncLeadToDb(lead, rispostaCliente = "") {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.leads) && parsed.leads.length > 0) {
-          leads = parsed.leads;
-          if (parsed.citta) document.getElementById("citta").value = parsed.citta;
-          if (parsed.zona) document.getElementById("zona").value = parsed.zona;
-          if (parsed.setter) document.getElementById("setter").value = parsed.setter;
-          renderTable();
-          updateStats();
-          const ora = new Date(parsed.updatedAt || Date.now()).toLocaleTimeString("it-IT");
-          document.getElementById("statusBox").innerHTML = `Ripristinati <strong>${leads.length}</strong> contatti (salvato alle <strong>${escapeHtml(ora)}</strong>).`;
-          return true;
-        }
-      } catch {
-        // ignora
-      }
-      return false;
-    }
-
-    function clearSavedLeads() {
-      localStorage.removeItem(STORAGE_KEY);
-      leads = [];
-      renderTable();
-      updateStats();
-      document.getElementById("statusBox").innerHTML = `Lista svuotata. Premi <strong>Carica Contatti</strong> per caricare una città.`;
-    }
-
-    function normalizeKey(str) {
-      return String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
-    }
-
-    function isDuplicate(candidate) {
-      const nKey = normalizeKey(candidate.nome);
-      return leads.some((item) => nKey && normalizeKey(item.nome) === nKey);
-    }
-
-    function toWhatsAppLink(rawWa) {
-      const digits = String(rawWa || "").replace(/[^0-9]/g, "");
-      if (!digits) return "";
-      const withCountry = digits.startsWith("39") ? digits : "39" + digits;
-      return `https://wa.me/${withCountry}`;
-    }
-
-    function parseSetters(rawInput) {
-      return String(rawInput || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-
-    function addManualRow() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Italia";
-      const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
-      const zonaFiltro = (document.getElementById("zona").value || "").trim() || "Centro";
-      const settersList = parseSetters(document.getElementById("setter").value);
-      const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
-      const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
-
-      leads.unshift({
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-        nome: "Nuovo Ristorante / Pizzeria",
-        info: "Via / Piazza • CAP",
-        citta,
-        zona: zonaFiltro,
-        cap: "99999",
-        sito: "",
-        telefono: "",
-        whatsapp: "",
-        email: "",
-        statoChiamata: statoDefault,
-        setter: settersList[0] || "",
-        note: noteDefault
-      });
-      saveLeadsToStorage();
-      renderTable();
-    }
-
-    async function loadRealContacts() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Roma";
-      const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
-      const zonaFiltro = (document.getElementById("zona").value || "").trim();
-      const settersList = parseSetters(document.getElementById("setter").value);
-      const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
-      const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
-      const targetLimit = Math.min(2000, Math.max(1, parseInt(document.getElementById("limit").value || "100", 10)));
-
-      const loadBtn = document.getElementById("loadBtn");
-      const statusBox = document.getElementById("statusBox");
-
-      leads = [];
-      loadBtn.disabled = true;
-      loadBtn.textContent = "Caricamento...";
-      statusBox.innerHTML = `Ricerca ristoranti e pizzerie per <strong>${escapeHtml(citta)}</strong>...`;
-
-      try {
-        const params = new URLSearchParams({
-          citta,
-          zona: zonaFiltro,
-          limit: String(targetLimit)
+        await fetch(`/api/db/leads/${encodeURIComponent(lead.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome: lead.nome,
+            cap: lead.cap,
+            citta: lead.citta,
+            zona: lead.zona,
+            telefono: lead.telefono,
+            whatsapp: lead.whatsapp,
+            stato_chiamata: lead.stato_chiamata,
+            setter: lead.setter,
+            note: lead.note,
+            data_richiamo: lead.data_richiamo,
+            risposta_cliente: rispostaCliente
+          })
         });
-        const res = await fetch(`/api/restaurants?${params.toString()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const rawItems = Array.isArray(data.items) ? data.items : [];
+      } catch {}
+    }
 
-        for (const raw of rawItems) {
-          const record = {
-            id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-            nome: raw.nome,
-            info: raw.info || "",
-            citta: raw.citta || citta,
-            zona: zonaFiltro || raw.zona || "Centro",
-            cap: raw.cap || "99999",
-            sito: raw.sito || "",
-            telefono: raw.telefono || "",
-            whatsapp: raw.whatsapp || "",
-            email: raw.email || "",
-            statoChiamata: statoDefault,
-            setter: settersList.length ? settersList[leads.length % settersList.length] : "",
-            note: noteDefault
-          };
-          if (!isDuplicate(record) && leads.length < targetLimit) {
-            leads.push(record);
+    async function bulkSaveToDb(items) {
+      try {
+        await fetch("/api/db/leads/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items })
+        });
+      } catch {}
+    }
+
+    async function loadFromDbIfAvailable() {
+      try {
+        const r = await fetch("/api/db/leads");
+        if (r.ok) {
+          const data = await r.json();
+          if (Array.isArray(data.items) && data.items.length > 0) {
+            leads = data.items;
           }
         }
+        const h = await fetch("/api/db/history?limit=100");
+        if (h.ok) {
+          const hData = await h.json();
+          if (Array.isArray(hData.items) && hData.items.length > 0) {
+            history = hData.items;
+          }
+        }
+      } catch {}
+    }
 
-        saveLeadsToStorage();
-        renderTable();
-        statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (ordinati per CAP, salvataggio automatico attivo).`;
-      } catch (err) {
-        renderTable();
-        statusBox.innerHTML = `Errore: <code>${escapeHtml(err.message)}</code>. Puoi anche aggiungere righe con <strong>+ Aggiungi riga</strong>.`;
-      } finally {
-        loadBtn.disabled = false;
-        loadBtn.textContent = "Carica Contatti";
+    function addHistoryEntry(lead, rispostaCliente = "") {
+      history.unshift({
+        nome_locale: lead.nome,
+        citta: lead.citta,
+        cap: lead.cap,
+        setter: lead.setter,
+        stato_chiamata: lead.stato_chiamata,
+        risposta_cliente: rispostaCliente,
+        nota: lead.note,
+        data_richiamo: lead.data_richiamo,
+        creato_il: new Date().toISOString()
+      });
+      history = history.slice(0, 150);
+    }
+
+    function isDueTodayOrPast(dtStr) {
+      if (!dtStr) return false;
+      const today = new Date().toISOString().slice(0, 10);
+      return String(dtStr).slice(0, 10) <= today;
+    }
+
+    function sortLeads() {
+      leads.sort((a, b) => {
+        const capA = a.cap && /^\d{5}$/.test(a.cap) ? a.cap : "99999";
+        const capB = b.cap && /^\d{5}$/.test(b.cap) ? b.cap : "99999";
+        if (capA !== capB) return capA.localeCompare(capB, "it");
+        return String(a.nome || "").localeCompare(String(b.nome || ""), "it");
+      });
+    }
+
+    function updateField(id, field, val) {
+      const item = leads.find((x) => x.id === id);
+      if (!item) return;
+      item[field] = val;
+      if (["stato_chiamata", "note", "data_richiamo", "risposta_cliente"].includes(field)) {
+        addHistoryEntry(item, field === "risposta_cliente" ? val : "");
+        syncLeadToDb(item, field === "risposta_cliente" ? val : "");
+        renderHistory();
       }
+      saveLocal();
+      updatePills();
+    }
+
+    function updatePills() {
+      document.getElementById("cTotal").textContent = leads.length;
+      document.getElementById("cDue").textContent = leads.filter((x) => isDueTodayOrPast(x.data_richiamo)).length;
+      document.getElementById("cBooked").textContent = leads.filter((x) => x.stato_chiamata === "Appuntamento fissato").length;
+    }
+
+    function waLink(raw) {
+      const d = String(raw || "").replace(/[^0-9]/g, "");
+      if (!d) return "";
+      return "https://wa.me/" + (d.startsWith("39") ? d : "39" + d);
     }
 
     function renderTable() {
-      const q = (document.getElementById("searchInput").value || "").toLowerCase().trim();
-      const statusFilter = document.getElementById("filterStatus").value;
-      const tbody = document.getElementById("leadsBody");
+      sortLeads();
+      const q = (document.getElementById("qSearch").value || "").toLowerCase().trim();
+      const st = document.getElementById("fStatus").value;
+      const cb = document.getElementById("fCallback").value;
+      const setF = (document.getElementById("fSetter").value || "").toLowerCase().trim();
 
-      const filtered = leads.filter((item) => {
-        if (statusFilter && item.statoChiamata !== statusFilter) return false;
+      const rows = leads.filter((r) => {
+        if (st && r.stato_chiamata !== st) return false;
+        if (setF && !String(r.setter || "").toLowerCase().includes(setF)) return false;
+        if (cb === "oggi_o_scaduti" && !isDueTodayOrPast(r.data_richiamo)) return false;
+        if (cb === "tutti_richiami" && !r.data_richiamo) return false;
         if (!q) return true;
-        const hay = `${item.nome} ${item.info} ${item.citta} ${item.zona} ${item.cap} ${item.telefono} ${item.whatsapp} ${item.sito} ${item.email} ${item.setter} ${item.note}`.toLowerCase();
+        const hay = `${r.nome} ${r.cap} ${r.citta} ${r.zona} ${r.telefono} ${r.whatsapp} ${r.setter} ${r.note} ${r.risposta_cliente || ""}`.toLowerCase();
         return hay.includes(q);
       });
 
-      updateStats();
+      updatePills();
+      const tbody = document.getElementById("tbody");
 
-      if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Nessun contatto da mostrare.</td></tr>`;
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#64748b;">Nessun lead da mostrare. Aggiungi una riga o incolla una lista a sinistra.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = filtered.map((item) => {
-        const optionsHtml = CALL_STATUSES.map(
-          (st) => `<option value="${escapeAttr(st)}" ${item.statoChiamata === st ? "selected" : ""}>${escapeHtml(st)}</option>`
-        ).join("");
-
-        const waUrl = toWhatsAppLink(item.whatsapp);
-        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(`${item.nome} ${item.citta}`)}`;
-        const capText = item.cap && item.cap !== "99999" ? `CAP ${item.cap}` : "CAP N/D";
+      tbody.innerHTML = rows.map((r) => {
+        const due = isDueTodayOrPast(r.data_richiamo);
+        const gUrl = `https://www.google.com/search?q=${encodeURIComponent(`${r.nome} ${r.citta}`)}`;
+        const wUrl = waLink(r.whatsapp);
+        const opts = STATUSES.map((s) => `<option value="${esc(s)}" ${r.stato_chiamata === s ? "selected" : ""}>${esc(s)}</option>`).join("");
 
         return `
-          <tr>
+          <tr class="${due ? "due-row" : ""}">
             <td>
-              <input class="cell-input cell-title" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
-              <input class="cell-input" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
-              <div class="action-links">
-                <a class="action-link google" href="${escapeAttr(googleUrl)}" target="_blank" rel="noopener noreferrer">Apri su Google ↗</a>
-                ${item.sito ? `<a class="action-link" href="${escapeAttr(item.sito)}" target="_blank" rel="noopener noreferrer">Apri sito ↗</a>` : ""}
-                ${waUrl ? `<a class="action-link" href="${escapeAttr(waUrl)}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}
+              <span class="cap-tag">${esc(r.cap && r.cap !== "99999" ? "CAP " + r.cap : "CAP N/D")}</span>
+              <input class="mini" style="font-weight:700;" type="text" value="${esc(r.nome)}" placeholder="Nome locale" oninput="updateField('${esc(r.id)}','nome',this.value)" />
+              <div class="row-2" style="margin-top:4px;">
+                <input class="mini" type="text" value="${esc(r.cap === "99999" ? "" : r.cap)}" placeholder="CAP" oninput="updateField('${esc(r.id)}','cap',this.value || '99999')" />
+                <input class="mini" type="text" value="${esc(r.citta)}" placeholder="Città" oninput="updateField('${esc(r.id)}','citta',this.value)" />
+              </div>
+              <div class="links">
+                <a href="${esc(gUrl)}" target="_blank" rel="noopener noreferrer">Apri su Google ↗</a>
+                ${wUrl ? `<a class="wa" href="${esc(wUrl)}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}
               </div>
             </td>
             <td>
-              <span class="cap-badge">${escapeHtml(capText)}</span>
-              <div class="sub-text">${escapeHtml(item.citta)} • ${escapeHtml(item.zona)}</div>
+              <input class="mini" type="text" value="${esc(r.telefono)}" placeholder="Telefono" oninput="updateField('${esc(r.id)}','telefono',this.value)" />
+              <input class="mini" type="text" value="${esc(r.whatsapp)}" placeholder="WhatsApp (+39...)" oninput="updateField('${esc(r.id)}','whatsapp',this.value)" />
             </td>
             <td>
-              <input class="cell-input" type="text" value="${escapeAttr(item.telefono)}" placeholder="Telefono (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'telefono', this.value)" />
-              <input class="cell-input" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+393...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
-              <input class="cell-input" type="text" value="${escapeAttr(item.sito)}" placeholder="Sito web (https://...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'sito', this.value)" />
-              <input class="cell-input" type="text" value="${escapeAttr(item.email)}" placeholder="Email" oninput="updateLeadField('${escapeAttr(item.id)}', 'email', this.value)" />
+              <select class="mini" onchange="updateField('${esc(r.id)}','stato_chiamata',this.value)">${opts}</select>
+              <input class="mini" type="text" value="${esc(r.risposta_cliente || "")}" placeholder="Risposta cliente..." onchange="updateField('${esc(r.id)}','risposta_cliente',this.value)" />
             </td>
             <td>
-              <select class="cell-input" onchange="updateLeadField('${escapeAttr(item.id)}', 'statoChiamata', this.value)">
-                ${optionsHtml}
-              </select>
+              <input class="mini" type="datetime-local" value="${esc(r.data_richiamo || "")}" onchange="updateField('${esc(r.id)}','data_richiamo',this.value)" />
             </td>
             <td>
-              <input class="cell-input" type="text" value="${escapeAttr(item.setter)}" placeholder="Setter" oninput="updateLeadField('${escapeAttr(item.id)}', 'setter', this.value)" />
+              <input class="mini" type="text" value="${esc(r.setter)}" placeholder="Setter" oninput="updateField('${esc(r.id)}','setter',this.value)" />
             </td>
             <td>
-              <input class="cell-input" type="text" value="${escapeAttr(item.note)}" placeholder="Scrivi nota..." oninput="updateLeadField('${escapeAttr(item.id)}', 'note', this.value)" />
+              <input class="mini" type="text" value="${esc(r.note)}" placeholder="Nota..." onchange="updateField('${esc(r.id)}','note',this.value)" />
             </td>
           </tr>
         `;
       }).join("");
     }
 
-    function updateLeadField(id, field, value) {
-      const target = leads.find((r) => r.id === id);
-      if (target) {
-        target[field] = value;
-        saveLeadsToStorage();
-      }
-    }
-
-    function exportToExcel() {
-      if (!leads.length) {
-        alert("Carica prima i contatti per esportare il file Excel.");
+    function renderHistory() {
+      const box = document.getElementById("historyList");
+      if (!history.length) {
+        box.innerHTML = "Nessuna attività registrata al momento.";
         return;
       }
-      const citta = (document.getElementById("citta").value || "citta").trim();
-      const rowsForSheet = leads.map((r, idx) => ({
-        "#": idx + 1,
+      box.innerHTML = history.slice(0, 50).map((h) => {
+        const dt = h.creato_il ? new Date(h.creato_il).toLocaleString("it-IT") : "";
+        return `
+          <div class="h-item">
+            <strong>${esc(h.nome_locale)}</strong> (${esc(h.citta)} ${h.cap && h.cap !== "99999" ? "• CAP " + esc(h.cap) : ""})
+            — Stato: <strong>${esc(h.stato_chiamata)}</strong>
+            ${h.setter ? `• Setter: <strong>${esc(h.setter)}</strong>` : ""}
+            <div style="color:#475569;margin-top:3px;">
+              ${h.risposta_cliente ? `Risposta: "${esc(h.risposta_cliente)}" • ` : ""}
+              ${h.nota ? `Nota: ${esc(h.nota)} • ` : ""}
+              ${h.data_richiamo ? `Richiamo: <strong>${esc(h.data_richiamo.replace("T", " "))}</strong> • ` : ""}
+              <span>${esc(dt)}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function addEmptyRow() {
+      const citta = (document.getElementById("defCitta").value || "Roma").trim();
+      const setter = (document.getElementById("defSetter").value || "").trim();
+      const item = {
+        id: String(Date.now()) + "_" + Math.random().toString(36).slice(2, 7),
+        nome: "Nuovo Locale",
+        cap: "99999",
+        citta,
+        zona: "",
+        telefono: "",
+        whatsapp: "",
+        stato_chiamata: "Da chiamare",
+        risposta_cliente: "",
+        data_richiamo: "",
+        setter,
+        note: ""
+      };
+      leads.unshift(item);
+      saveLocal();
+      bulkSaveToDb([item]);
+      renderTable();
+    }
+
+    function handleQuickSubmit(e) {
+      e.preventDefault();
+      const cittaDef = (document.getElementById("defCitta").value || "Roma").trim();
+      const setterDef = (document.getElementById("defSetter").value || "").trim();
+      const raw = (document.getElementById("pasteList").value || "").trim();
+
+      const added = [];
+      if (raw) {
+        const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          const parts = line.split("|").map((p) => p.trim());
+          if (!parts[0]) continue;
+          const item = {
+            id: String(Date.now()) + "_" + Math.random().toString(36).slice(2, 7),
+            nome: parts[0],
+            cap: (parts[1] || "99999").replace(/\D/g, "").slice(0, 5) || "99999",
+            citta: parts[2] || cittaDef,
+            zona: parts[3] || "",
+            telefono: parts[4] || "",
+            whatsapp: parts[5] || "",
+            stato_chiamata: "Da chiamare",
+            risposta_cliente: "",
+            data_richiamo: "",
+            setter: setterDef,
+            note: parts[6] || ""
+          };
+          leads.push(item);
+          added.push(item);
+        }
+        document.getElementById("pasteList").value = "";
+      } else {
+        addEmptyRow();
+        return;
+      }
+
+      saveLocal();
+      bulkSaveToDb(added);
+      renderTable();
+      document.getElementById("msgBox").innerHTML = `Aggiunti <strong>${added.length}</strong> lead. Totale: <strong>${leads.length}</strong>.`;
+    }
+
+    function exportExcel() {
+      if (!leads.length) {
+        alert("Nessun lead da esportare.");
+        return;
+      }
+      const rows = leads.map((r, i) => ({
+        "#": i + 1,
         "CAP": r.cap && r.cap !== "99999" ? r.cap : "",
         "Nome Locale": r.nome,
-        "Citta": r.citta,
-        "Zona": r.zona,
-        "Informazioni": r.info,
+        "Città": r.citta,
         "Telefono": r.telefono,
         "WhatsApp": r.whatsapp,
-        "Sito Web": r.sito,
-        "Email": r.email,
-        "Stato Chiamata": r.statoChiamata,
+        "Stato Chiamata": r.stato_chiamata,
+        "Risposta Cliente": r.risposta_cliente || "",
+        "Data Richiamo": r.data_richiamo || "",
         "Setter": r.setter,
         "Note": r.note
       }));
-
-      const ws = XLSX.utils.json_to_sheet(rowsForSheet);
+      const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Lead Ristoranti");
-
-      const safeSlug = citta.toLowerCase().replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "citta";
-      XLSX.writeFile(wb, `lead_ristoranti_${safeSlug}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, "Lead");
+      XLSX.writeFile(wb, "lead_vocalis.xlsx");
     }
 
-    function escapeHtml(str) {
-      return String(str || "")
+    function esc(s) {
+      return String(s || "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
-    function escapeAttr(str) {
-      return escapeHtml(str).replace(/'/g, "&#39;");
-    }
-
-    document.getElementById("leadForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      loadRealContacts();
+    document.getElementById("quickForm").addEventListener("submit", handleQuickSubmit);
+    document.getElementById("addRowBtn").addEventListener("click", addEmptyRow);
+    document.getElementById("exportBtn").addEventListener("click", exportExcel);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      localStorage.removeItem(LOCAL_KEY);
+      localStorage.removeItem(HIST_KEY);
+      leads = [];
+      history = [];
+      renderTable();
+      renderHistory();
+    });
+    document.getElementById("refreshHistBtn").addEventListener("click", async () => {
+      await loadFromDbIfAvailable();
+      renderTable();
+      renderHistory();
+    });
+    ["qSearch", "fStatus", "fCallback", "fSetter"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", renderTable);
+      document.getElementById(id).addEventListener("change", renderTable);
     });
 
-    document.getElementById("addOneBtn").addEventListener("click", addManualRow);
-    document.getElementById("clearStorageBtn").addEventListener("click", clearSavedLeads);
-    document.getElementById("exportBtn").addEventListener("click", exportToExcel);
-    document.getElementById("searchInput").addEventListener("input", renderTable);
-    document.getElementById("filterStatus").addEventListener("change", renderTable);
-
-    updateStats();
-    if (!restoreLeadsFromStorage()) {
-      loadRealContacts();
-    }
+    loadLocal();
+    loadFromDbIfAvailable().then(() => {
+      renderTable();
+      renderHistory();
+    });
   </script>
 </body>
 </html>
