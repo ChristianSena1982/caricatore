@@ -15,19 +15,19 @@
       padding: 24px 16px;
     }
     .container {
-      max-width: 1380px;
+      max-width: 1420px;
       margin: 0 auto;
     }
     .layout {
       display: grid;
-      grid-template-columns: 375px 1fr;
+      grid-template-columns: 360px 1fr;
       gap: 22px;
       align-items: start;
     }
     .card {
       background: #ffffff;
       border-radius: 14px;
-      padding: 24px;
+      padding: 22px;
       box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
       border: 1px solid #e2e8f0;
     }
@@ -52,13 +52,13 @@
       color: #0f172a;
     }
     p.desc {
-      margin: 0 0 18px;
+      margin: 0 0 16px;
       color: #475569;
-      font-size: 13.5px;
+      font-size: 13px;
       line-height: 1.45;
     }
     .field {
-      margin-bottom: 14px;
+      margin-bottom: 13px;
     }
     label {
       display: block;
@@ -69,16 +69,16 @@
     }
     input, select, textarea {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 11px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      font-size: 13.5px;
+      font-size: 13px;
       color: #0f172a;
       background: #fff;
       font-family: inherit;
     }
     textarea {
-      min-height: 70px;
+      min-height: 65px;
       resize: vertical;
     }
     input:focus, select:focus, textarea:focus {
@@ -89,7 +89,7 @@
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
     }
     .btn {
       width: 100%;
@@ -164,13 +164,13 @@
       overflow-x: auto;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
-      max-height: 760px;
+      max-height: 780px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12.5px;
-      min-width: 1080px;
+      min-width: 1120px;
     }
     th {
       background: #1e3a5f;
@@ -195,8 +195,19 @@
     .sub {
       color: #64748b;
       font-size: 11.5px;
-      margin-top: 2px;
-      line-height: 1.35;
+      margin-top: 3px;
+      line-height: 1.38;
+    }
+    .info-full {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      color: #334155;
+      margin-top: 5px;
+      line-height: 1.4;
+      word-break: break-word;
     }
     .contact-mini {
       width: 100%;
@@ -210,6 +221,7 @@
     .link-hint {
       display: inline-block;
       margin-top: 2px;
+      margin-right: 8px;
       font-size: 11px;
       color: #0f766e;
       text-decoration: none;
@@ -233,7 +245,7 @@
       padding: 6px 8px;
       font-size: 12px;
       border-radius: 6px;
-      min-width: 160px;
+      min-width: 165px;
     }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
@@ -245,9 +257,9 @@
   <div class="container">
     <div class="layout">
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis • Render v2</span>
+        <span class="badge">Artsoftware2022 • Vocalis • Render v3</span>
         <h1>Estrai Ristoranti Reali</h1>
-        <p class="desc">Combina Overpass, Photon e Nominatim lato server per estrarre fino a 100 locali reali, indirizzo/cucina/orari, sito web, telefono e WhatsApp, con modifica rapida ed export <strong>.xlsx</strong>.</p>
+        <p class="desc">Combina Overpass, Photon, Nominatim ed arricchimento dai siti web ufficiali per estrarre fino a 100 locali, informazioni complete, sito, telefono, WhatsApp ed email, con export <strong>.xlsx</strong>.</p>
 
         <form id="leadForm">
           <div class="field">
@@ -334,7 +346,7 @@
         <div class="toolbar">
           <div>
             <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Mostra indirizzo, cucina/tipo, sito web, telefono, WhatsApp ed email censiti; puoi completare o modificare qualsiasi campo prima dell'export <strong>.xlsx</strong>.</p>
+            <p class="desc" style="margin:0;">Mostra informazioni complete del locale (via, civico, CAP, cucina, orari, tipo) e campi modificabili per Sito, Telefono, WhatsApp ed Email.</p>
           </div>
           <button id="addOneBtn" type="button" class="btn btn-add">+ Aggiungi riga manuale</button>
         </div>
@@ -357,9 +369,9 @@
           <table>
             <thead>
               <tr>
-                <th>Nome Locale &amp; Info Ristorante</th>
+                <th style="min-width:290px;">Nome Locale &amp; Info Ristorante</th>
                 <th>Città / Zona</th>
-                <th>Sito, Tel, WhatsApp &amp; Email</th>
+                <th style="min-width:250px;">Sito, Tel, WhatsApp &amp; Email</th>
                 <th>Stato Chiamata</th>
                 <th>Setter</th>
                 <th>Note</th>
@@ -417,7 +429,7 @@
       leads.unshift({
         id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
         nome: "Nuovo Locale",
-        info: "Inserisci indirizzo, cucina o orari",
+        info: "Inserisci indirizzo, CAP, cucina, orari...",
         citta,
         zona: zonaFiltro,
         sito: "",
@@ -447,7 +459,7 @@
       leads = [];
       loadBtn.disabled = true;
       loadBtn.textContent = "Estrazione in corso...";
-      statusBox.innerHTML = `Estrazione multi-fonte (Overpass + Photon) per <strong>${escapeHtml(citta)}</strong>...`;
+      statusBox.innerHTML = `Estrazione da Overpass, Photon, Nominatim e siti ufficiali per <strong>${escapeHtml(citta)}</strong>...`;
 
       try {
         const params = new URLSearchParams({
@@ -484,11 +496,12 @@
         const withSite = leads.filter((x) => x.sito).length;
         const withWa = leads.filter((x) => x.whatsapp).length;
         const withPhone = leads.filter((x) => x.telefono).length;
+        const withEmail = leads.filter((x) => x.email).length;
 
         if (leads.length === 0) {
           statusBox.innerHTML = `Nessun locale trovato per <strong>${escapeHtml(citta)}</strong> al momento. Puoi aggiungere righe con <strong>+ Aggiungi riga manuale</strong>.`;
         } else {
-          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong>).`;
+          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong> • Email: <strong>${withEmail}</strong>).`;
         }
       } catch (err) {
         renderTable();
@@ -534,7 +547,8 @@
           <tr>
             <td>
               <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
-              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+              <div class="info-full">${escapeHtml(item.info || "Nessuna info aggiuntiva su mappa")}</div>
+              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Modifica indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
             </td>
             <td>
               <div><strong>${escapeHtml(item.citta)}</strong></div>
