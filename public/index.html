@@ -200,12 +200,22 @@
     }
     .contact-mini {
       width: 100%;
-      padding: 4px 6px;
+      padding: 5px 7px;
       font-size: 11.5px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #cbd5e1;
       border-radius: 5px;
-      margin-top: 3px;
+      margin-top: 4px;
       background: #fff;
+    }
+    .link-hint {
+      display: inline-block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #0f766e;
+      text-decoration: none;
+    }
+    .link-hint:hover {
+      text-decoration: underline;
     }
     .row-select {
       padding: 6px 8px;
@@ -235,14 +245,14 @@
   <div class="container">
     <div class="layout">
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis • Render</span>
+        <span class="badge">Artsoftware2022 • Vocalis • Render v2</span>
         <h1>Estrai Ristoranti Reali</h1>
-        <p class="desc">Servito da backend Node/Express su Render (zero blocchi CORS browser). Estrae locali reali per città italiana, permette la modifica rapida di Sito, Tel, WhatsApp, Email, Stato, Setter e Note ed esporta in <strong>.xlsx</strong>.</p>
+        <p class="desc">Combina Overpass, Photon e Nominatim lato server per estrarre fino a 100 locali reali, indirizzo/cucina/orari, sito web, telefono e WhatsApp, con modifica rapida ed export <strong>.xlsx</strong>.</p>
 
         <form id="leadForm">
           <div class="field">
             <label for="citta">Città italiana *</label>
-            <input id="citta" name="citta" type="text" value="Firenze" list="italianCities" placeholder="Es. Firenze, Roma, Milano, Cesena, Sassari..." required />
+            <input id="citta" name="citta" type="text" value="Roma" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Cesena, Sassari..." required />
             <datalist id="italianCities">
               <option value="Ancona"></option>
               <option value="Bari"></option>
@@ -277,7 +287,7 @@
           <div class="grid-2">
             <div class="field">
               <label for="zona">Zona / Quartiere</label>
-              <input id="zona" name="zona" type="text" placeholder="Es. Centro..." />
+              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Trastevere..." />
             </div>
             <div class="field">
               <label for="limit">Numero contatti (fino a 100)</label>
@@ -324,7 +334,7 @@
         <div class="toolbar">
           <div>
             <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Modifica Sito, Tel, WhatsApp, Email, Stato, Setter e Note al volo e scarica il file <strong>.xlsx</strong> aggiornato.</p>
+            <p class="desc" style="margin:0;">Mostra indirizzo, cucina/tipo, sito web, telefono, WhatsApp ed email censiti; puoi completare o modificare qualsiasi campo prima dell'export <strong>.xlsx</strong>.</p>
           </div>
           <button id="addOneBtn" type="button" class="btn btn-add">+ Aggiungi riga manuale</button>
         </div>
@@ -389,6 +399,13 @@
       });
     }
 
+    function toWhatsAppLink(rawWa) {
+      const digits = String(rawWa || "").replace(/[^0-9]/g, "");
+      if (!digits) return "";
+      const withCountry = digits.startsWith("39") ? digits : "39" + digits;
+      return `https://wa.me/${withCountry}`;
+    }
+
     function addManualRow() {
       const rawCity = (document.getElementById("citta").value || "").trim() || "Italia";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
@@ -400,7 +417,7 @@
       leads.unshift({
         id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
         nome: "Nuovo Locale",
-        info: "Inserisci indirizzo o dettagli",
+        info: "Inserisci indirizzo, cucina o orari",
         citta,
         zona: zonaFiltro,
         sito: "",
@@ -416,7 +433,7 @@
     }
 
     async function loadRealContacts() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Firenze";
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Roma";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim();
       const setterDefault = (document.getElementById("setter").value || "").trim();
@@ -430,7 +447,7 @@
       leads = [];
       loadBtn.disabled = true;
       loadBtn.textContent = "Estrazione in corso...";
-      statusBox.innerHTML = `Interrogazione backend su Render per <strong>${escapeHtml(citta)}</strong>...`;
+      statusBox.innerHTML = `Estrazione multi-fonte (Overpass + Photon) per <strong>${escapeHtml(citta)}</strong>...`;
 
       try {
         const params = new URLSearchParams({
@@ -464,14 +481,18 @@
         }
 
         renderTable();
+        const withSite = leads.filter((x) => x.sito).length;
+        const withWa = leads.filter((x) => x.whatsapp).length;
+        const withPhone = leads.filter((x) => x.telefono).length;
+
         if (leads.length === 0) {
           statusBox.innerHTML = `Nessun locale trovato per <strong>${escapeHtml(citta)}</strong> al momento. Puoi aggiungere righe con <strong>+ Aggiungi riga manuale</strong>.`;
         } else {
-          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali reali per <strong>${escapeHtml(citta)}</strong> tramite backend Render.`;
+          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong>).`;
         }
       } catch (err) {
         renderTable();
-        statusBox.innerHTML = `Errore di connessione al backend (<code>${escapeHtml(err.message)}</code>). Verifica che il servizio Node sia avviato su Render o usa <strong>+ Aggiungi riga manuale</strong>.`;
+        statusBox.innerHTML = `Errore durante l'estrazione (<code>${escapeHtml(err.message)}</code>). Riprova o usa <strong>+ Aggiungi riga manuale</strong>.`;
       } finally {
         loadBtn.disabled = false;
         loadBtn.textContent = "Carica Contatti Reali";
@@ -501,11 +522,19 @@
           (st) => `<option value="${escapeAttr(st)}" ${item.statoChiamata === st ? "selected" : ""}>${escapeHtml(st)}</option>`
         ).join("");
 
+        const waUrl = toWhatsAppLink(item.whatsapp);
+        const siteLinkHtml = item.sito
+          ? `<a class="link-hint" href="${escapeAttr(item.sito)}" target="_blank" rel="noopener noreferrer">Apri sito ↗</a>`
+          : "";
+        const waLinkHtml = waUrl
+          ? `<a class="link-hint" href="${escapeAttr(waUrl)}" target="_blank" rel="noopener noreferrer">Chat WhatsApp ↗</a>`
+          : "";
+
         return `
           <tr>
             <td>
               <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
-              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo / Info" oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
             </td>
             <td>
               <div><strong>${escapeHtml(item.citta)}</strong></div>
@@ -513,8 +542,10 @@
             </td>
             <td>
               <input class="contact-mini" type="text" value="${escapeAttr(item.sito)}" placeholder="Sito web (https://...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'sito', this.value)" />
+              ${siteLinkHtml}
               <input class="contact-mini" type="text" value="${escapeAttr(item.telefono)}" placeholder="Telefono (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'telefono', this.value)" />
-              <input class="contact-mini" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+393...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
+              ${waLinkHtml}
               <input class="contact-mini" type="text" value="${escapeAttr(item.email)}" placeholder="Email" oninput="updateLeadField('${escapeAttr(item.id)}', 'email', this.value)" />
             </td>
             <td>
