@@ -81,43 +81,98 @@ function buildInfoLine(parts = {}) {
   return [street, ...extraBits].filter(Boolean).join(" • ");
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
+async function fetchTextSafe(url, options = {}, timeoutMs = 6000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       ...options,
       headers: {
-        Accept: "application/json",
+        "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0",
         ...(options.headers || {})
       },
       signal: controller.signal
     });
     clearTimeout(timer);
     if (!res.ok) return null;
-    return await res.json();
+    return await res.text();
   } catch {
     clearTimeout(timer);
     return null;
   }
 }
 
-async function searchOverpass(citta, zona = "", limit = 100) {
-  const cityEsc = citta.replace(/"/g, '\"');
-  const zoneFilter = zona
-    ? `["addr:suburb"~"${zona.replace(/"/g, '\"')}",i]`
-    : "";
+async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
+  const txt = await fetchTextSafe(
+    url,
+    {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {})
+      }
+    },
+    timeoutMs
+  );
+  if (!txt) return null;
+  try {
+    return JSON.parse(txt);
+  } catch {
+    return null;
+  }
+}
 
+async function enrichFromWebsite(item) {
+  if (!item.sito || (item.email && item.telefono && item.whatsapp)) return item;
+  if (/instagram\.com|facebook\.com/i.test(item.sito)) return item;
+
+  const html = await fetchTextSafe(item.sito, {}, 4500);
+  if (!html) return item;
+
+  if (!item.email) {
+    const mailMatch = html.match(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i);
+    if (mailMatch && mailMatch[1]) {
+      item.email = mailMatch[1].trim();
+    } else {
+      const textEmail = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(?:it|com|eu|org|net)/i);
+      if (textEmail && !textEmail[0].includes("example.com")) {
+        item.email = textEmail[0].trim();
+      }
+    }
+  }
+
+  if (!item.whatsapp) {
+    const waMatch = html.match(/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=)(\+?\d{8,15})/i);
+    if (waMatch && waMatch[1]) {
+      item.whatsapp = formatItalianMobile(waMatch[1]);
+    }
+  }
+
+  if (!item.telefono) {
+    const telMatch = html.match(/tel:([+0-9\s-]{7,20})/i);
+    if (telMatch && telMatch[1]) {
+      item.telefono = telMatch[1].trim();
+      if (!item.whatsapp && isItalianMobile(item.telefono)) {
+        item.whatsapp = formatItalianMobile(item.telefono);
+      }
+    }
+  }
+
+  return item;
+}
+
+async function searchOverpass(citta, zona = "", limit = 100) {
+  const cityEsc = citta.replace(/"/g, '\\"');
   const overpassQuery = `
-[out:json][timeout:20];
+[out:json][timeout:25];
 (
-  area["name"~"^${cityEsc}$",i]["boundary"~"administrative"]->.searchArea;
+  area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
   (
-    node["amenity"~"restaurant|cafe|bar|fast_food|pub|ice_cream"]${zoneFilter}(area.searchArea);
-    way["amenity"~"restaurant|cafe|bar|fast_food|pub|ice_cream"]${zoneFilter}(area.searchArea);
+    node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
+    way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
   );
 );
-out center tags ${Math.min(limit * 2, 200)};
+out center tags ${Math.min(limit * 3, 300)};
 `.trim();
 
   const endpoints = [
@@ -132,11 +187,11 @@ out center tags ${Math.min(limit * 2, 200)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/2.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
-      14000
+      15000
     );
 
     const elements = data && Array.isArray(data.elements) ? data.elements : [];
@@ -147,6 +202,19 @@ out center tags ${Math.min(limit * 2, 200)};
       const tags = el.tags || {};
       const name = String(tags.name || "").trim();
       if (!name) continue;
+
+      const detectedZone =
+        tags["addr:suburb"] ||
+        tags["addr:neighbourhood"] ||
+        tags["addr:city_district"] ||
+        tags["addr:quarter"] ||
+        "Centro";
+
+      if (zona) {
+        const zLow = zona.toLowerCase();
+        const hayZone = `${detectedZone} ${tags["addr:street"] || ""} ${name}`.toLowerCase();
+        if (!hayZone.includes(zLow)) continue;
+      }
 
       const contacts = extractContacts(tags);
       const info = buildInfoLine({
@@ -162,7 +230,7 @@ out center tags ${Math.min(limit * 2, 200)};
         nome: name,
         info: info || `Locale (${tags.amenity || "ristorazione"})`,
         citta,
-        zona: zona || tags["addr:suburb"] || tags["addr:neighbourhood"] || tags["addr:city_district"] || "Centro",
+        zona: zona || detectedZone,
         sito: contacts.website,
         telefono: contacts.phone,
         whatsapp: contacts.whatsapp,
@@ -183,14 +251,15 @@ async function searchPhoton(citta, zona = "") {
         `pizzeria ${zona} ${citta}`,
         `trattoria ${zona} ${citta}`,
         `osteria ${zona} ${citta}`,
-        `ristorante ${citta}`
+        `bar ${zona} ${citta}`
       ]
     : [
         `ristorante ${citta}`,
         `pizzeria ${citta}`,
         `trattoria ${citta}`,
         `osteria ${citta}`,
-        `ristoranti ${citta}`
+        `ristoranti ${citta}`,
+        `bar ${citta}`
       ];
 
   const items = [];
@@ -198,7 +267,7 @@ async function searchPhoton(citta, zona = "") {
 
   for (const q of queries) {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=50`;
-    const data = await fetchJsonSafe(url, {}, 6000);
+    const data = await fetchJsonSafe(url, {}, 6500);
     const features = data && Array.isArray(data.features) ? data.features : [];
 
     for (const f of features) {
@@ -234,7 +303,7 @@ async function searchPhoton(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 120) break;
+    if (items.length >= 160) break;
   }
 
   return items;
@@ -242,16 +311,25 @@ async function searchPhoton(citta, zona = "") {
 
 async function searchNominatim(citta, zona = "") {
   const queries = zona
-    ? [`restaurant ${zona} ${citta}, Italia`, `pizzeria ${zona} ${citta}, Italia`]
-    : [`restaurant ${citta}, Italia`, `pizzeria ${citta}, Italia`, `trattoria ${citta}, Italia`];
+    ? [
+        `restaurant ${zona} ${citta}, Italia`,
+        `pizzeria ${zona} ${citta}, Italia`,
+        `trattoria ${zona} ${citta}, Italia`
+      ]
+    : [
+        `restaurant ${citta}, Italia`,
+        `pizzeria ${citta}, Italia`,
+        `trattoria ${citta}, Italia`,
+        `osteria ${citta}, Italia`
+      ];
 
   const items = [];
   for (const q of queries) {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=40`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/2.0" } },
-      7000
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/3.0" } },
+      7500
     );
     if (!Array.isArray(data)) continue;
 
@@ -281,7 +359,7 @@ async function searchNominatim(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 80) break;
+    if (items.length >= 100) break;
   }
 
   return items;
@@ -303,7 +381,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
         if (!existing.telefono && item.telefono) existing.telefono = item.telefono;
         if (!existing.whatsapp && item.whatsapp) existing.whatsapp = item.whatsapp;
         if (!existing.email && item.email) existing.email = item.email;
-        if ((!existing.info || existing.info.length < 15) && item.info && item.info.length > existing.info.length) {
+        if ((!existing.info || existing.info.length < 20) && item.info && item.info.length > existing.info.length) {
           existing.info = item.info;
         }
         if ((!existing.zona || existing.zona === "Centro") && item.zona && item.zona !== "Centro") {
@@ -317,7 +395,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
 }
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, service: "vocalis-estrattore-ristoranti-v2", timestamp: new Date().toISOString() });
+  res.json({ ok: true, service: "vocalis-estrattore-ristoranti-v3", timestamp: new Date().toISOString() });
 });
 
 app.get("/api/restaurants", async (req, res) => {
@@ -332,18 +410,19 @@ app.get("/api/restaurants", async (req, res) => {
 
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
-    const [overpassPool, photonPool] = await Promise.all([
+    const [overpassPool, photonPool, nominatimPool] = await Promise.all([
       searchOverpass(citta, zona, limit),
-      searchPhoton(citta, zona)
+      searchPhoton(citta, zona),
+      searchNominatim(citta, zona)
     ]);
 
-    let pools = [overpassPool, photonPool];
-    if (overpassPool.length + photonPool.length < Math.min(limit, 40)) {
-      const nominatimPool = await searchNominatim(citta, zona);
-      pools.push(nominatimPool);
-    }
+    let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
 
-    const items = mergeAndDeduplicate(pools, limit);
+    const batchSize = 8;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = items.slice(i, i + batchSize);
+      await Promise.all(batch.map((it) => enrichFromWebsite(it)));
+    }
 
     return res.json({
       citta,
@@ -361,5 +440,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v2 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v3 in ascolto sulla porta ${PORT}`);
 });
