@@ -56,6 +56,29 @@ function isJunkDomain(urlStr) {
   );
 }
 
+function isInsideItaly(lat, lon, countryCode = "", addressText = "") {
+  if (countryCode && String(countryCode).toUpperCase() !== "IT") {
+    return false;
+  }
+  const numLat = Number(lat);
+  const numLon = Number(lon);
+  if (Number.isFinite(numLat) && Number.isFinite(numLon)) {
+    if (numLat < 36.2 || numLat > 47.3 || numLon < 6.4 || numLon > 18.9) {
+      return false;
+    }
+  }
+  const lowAddr = normalizeText(addressText);
+  const foreignHints = [
+    "finland", "suomi", "germany", "deutschland", "canada", "austria",
+    "switzerland", "schweiz", "france", "spain", "uk", "united kingdom",
+    "usa", "united states", "matkuksentie", "lonsdale", "obergasse", "dompassage"
+  ];
+  if (foreignHints.some((fh) => lowAddr.includes(fh))) {
+    return false;
+  }
+  return true;
+}
+
 function cleanPhone(raw) {
   return String(raw || "").replace(/[\s\-().]/g, "").trim();
 }
@@ -67,7 +90,7 @@ function formatItalianPhone(phoneStr) {
   const noPrefix = digitsOnly.replace(/^\+39/, "").replace(/^0039/, "");
   if (/^3\d{8,9}$/.test(noPrefix)) return "+39 " + noPrefix;
   if (/^0\d{5,10}$/.test(noPrefix)) return noPrefix;
-  return cleaned;
+  return "";
 }
 
 function isItalianMobile(phoneStr) {
@@ -161,7 +184,7 @@ async function fetchTextSafe(url, options = {}, timeoutMs = 4500) {
   }
 }
 
-async function fetchJsonSafe(url, options = {}, timeoutMs = 8500) {
+async function fetchJsonSafe(url, options = {}, timeoutMs = 9000) {
   const txt = await fetchTextSafe(
     url,
     {
@@ -284,7 +307,7 @@ async function enrichFromWebsite(item) {
 async function enrichFromWebSearch(item) {
   if (item.sito && item.telefono) return item;
 
-  const q = `"${item.nome}" ${item.citta} telefono`;
+  const q = `"${item.nome}" ${item.citta} Italia telefono`;
   const ddgHtml = await fetchTextSafe(
     `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`,
     {},
@@ -300,6 +323,11 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
     const tags = el.tags || {};
     const name = String(tags.name || "").trim();
     if (!name) continue;
+
+    const lat = el.lat || (el.center && el.center.lat);
+    const lon = el.lon || (el.center && el.center.lon);
+    const addrText = `${tags["addr:city"] || ""} ${tags["addr:street"] || ""} ${tags["addr:country"] || ""}`;
+    if (!isInsideItaly(lat, lon, tags["addr:country"] || "IT", addrText)) continue;
 
     const detectedZone =
       tags["addr:suburb"] ||
@@ -334,35 +362,58 @@ function mapOverpassElements(elements, citta, zonaRichiesta) {
   return items;
 }
 
-async function searchOverpassUnrestricted(citta, zona = "", limit = 100) {
+async function searchOverpassItalianCity(citta, zona = "", limit = 100) {
   const cityEsc = citta.replace(/"/g, '\\"');
+  const isRoma = normalizeText(citta) === "roma";
   const zoneVariants = buildZoneVariants(zona);
   const zoneRegex = zoneVariants.map((z) => z.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
 
+  // Su Roma usiamo il bounding box di Roma per evitare timeout su area multi-poligono
+  const scopeBlock = isRoma
+    ? `(41.72,12.28,42.06,12.72)`
+    : `(area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;.searchArea)`;
+
   const overpassQuery = zona
+    ? isRoma
+      ? `
+[out:json][timeout:20];
+(
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:street"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:street"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:suburb"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["addr:suburb"~"${zoneRegex}",i](41.72,12.28,42.06,12.72);
+);
+out center tags ${Math.min(limit * 3, 300)};
+`.trim()
+      : `
+[out:json][timeout:20];
+area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
+(
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
+);
+out center tags ${Math.min(limit * 3, 300)};
+`.trim()
+    : isRoma
     ? `
 [out:json][timeout:20];
-area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.cityArea;
 (
-  way["name"~"${zoneRegex}",i](area.cityArea)->.zoneWays;
-  nwr(around.zoneWays:220)["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.cityArea);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:street"~"${zoneRegex}",i](area.cityArea);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"]["addr:suburb"~"${zoneRegex}",i](area.cityArea);
-  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"~"${zoneRegex}",i](area.cityArea);
+  node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.75,12.35,42.02,12.65);
+  way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](41.75,12.35,42.02,12.65);
 );
-out center tags ${Math.min(limit * 4, 400)};
+out center tags ${Math.min(limit * 3, 300)};
 `.trim()
     : `
 [out:json][timeout:20];
+area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
 (
-  area["name"~"^${cityEsc}$",i]["admin_level"~"6|7|8"]->.searchArea;
-  (
-    node["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
-    way["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
-  );
+  nwr["amenity"~"restaurant|fast_food|cafe|bar|pub|ice_cream"]["name"](area.searchArea);
 );
-out center tags ${Math.min(limit * 4, 400)};
+out center tags ${Math.min(limit * 3, 300)};
 `.trim();
+
+  void scopeBlock;
 
   const endpoints = [
     "https://overpass-api.de/api/interpreter",
@@ -376,7 +427,7 @@ out center tags ${Math.min(limit * 4, 400)};
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/11.0"
+          "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/12.0"
         },
         body: "data=" + encodeURIComponent(overpassQuery)
       },
@@ -392,30 +443,24 @@ out center tags ${Math.min(limit * 4, 400)};
   return [];
 }
 
-async function searchPhotonUnrestricted(citta, zona = "") {
+async function searchPhotonItalian(citta, zona = "") {
   const queries = zona
     ? [
-        `ristorante ${zona} ${citta}`,
-        `pizzeria ${zona} ${citta}`,
-        `trattoria ${zona} ${citta}`,
-        `osteria ${zona} ${citta}`,
-        `bar ${zona} ${citta}`,
-        `bistrot ${zona} ${citta}`,
-        `pub ${zona} ${citta}`,
-        `via ${zona} ${citta} ristorante`
+        `ristorante ${zona} ${citta} italia`,
+        `pizzeria ${zona} ${citta} italia`,
+        `trattoria ${zona} ${citta} italia`,
+        `bar ${zona} ${citta} italia`
       ]
     : [
-        `ristorante ${citta}`,
-        `pizzeria ${citta}`,
-        `trattoria ${citta}`,
-        `osteria ${citta}`,
-        `bar ${citta}`,
-        `pub ${citta}`,
-        `ristoranti ${citta}`,
-        `pizzerie ${citta}`
+        `ristorante ${citta} italia`,
+        `pizzeria ${citta} italia`,
+        `trattoria ${citta} italia`,
+        `osteria ${citta} italia`,
+        `bar ${citta} italia`
       ];
 
   const items = [];
+  const wantedCity = normalizeText(citta);
   const zoneVariants = buildZoneVariants(zona);
 
   for (const q of queries) {
@@ -425,12 +470,23 @@ async function searchPhotonUnrestricted(citta, zona = "") {
 
     for (const f of features) {
       const p = f.properties || {};
+      const coords = (f.geometry && f.geometry.coordinates) || [];
+      const lon = coords[0];
+      const lat = coords[1];
       const name = String(p.name || "").trim();
       if (!name) continue;
 
+      const addrString = `${p.city || ""} ${p.street || ""} ${p.country || ""}`;
+      if (!isInsideItaly(lat, lon, p.countrycode || "", addrString)) continue;
+
+      const cityProp = normalizeText(p.city || p.town || p.village || "");
+      if (cityProp && !cityProp.includes(wantedCity) && !wantedCity.includes(cityProp)) {
+        continue;
+      }
+
       if (zoneVariants.length > 0) {
         const hay = normalizeText(
-          `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""} ${p.city || ""}`
+          `${name} ${p.street || ""} ${p.district || ""} ${p.locality || ""} ${p.suburb || ""}`
         );
         if (!zoneVariants.some((zv) => hay.includes(zv))) continue;
       }
@@ -455,35 +511,33 @@ async function searchPhotonUnrestricted(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 250) break;
+    if (items.length >= 180) break;
   }
 
   return items;
 }
 
-async function searchNominatimUnrestricted(citta, zona = "") {
+async function searchNominatimItalian(citta, zona = "") {
   const queries = zona
     ? [
         `restaurant ${zona} ${citta}, Italia`,
         `pizzeria ${zona} ${citta}, Italia`,
-        `trattoria ${zona} ${citta}, Italia`,
-        `bar ${zona} ${citta}, Italia`
+        `trattoria ${zona} ${citta}, Italia`
       ]
     : [
         `restaurant ${citta}, Italia`,
         `pizzeria ${citta}, Italia`,
-        `trattoria ${citta}, Italia`,
-        `osteria ${citta}, Italia`
+        `trattoria ${citta}, Italia`
       ];
 
   const items = [];
   const zoneVariants = buildZoneVariants(zona);
 
   for (const q of queries) {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&limit=50`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&countrycodes=it&limit=50`;
     const data = await fetchJsonSafe(
       url,
-      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/11.0" } },
+      { headers: { "User-Agent": "Artsoftware2022-Vocalis-LeadExtractor/12.0" } },
       6000
     );
     if (!Array.isArray(data)) continue;
@@ -493,6 +547,10 @@ async function searchNominatimUnrestricted(citta, zona = "") {
       if (!name) continue;
       const addr = row.address || {};
       const extra = row.extratags || {};
+
+      if (!isInsideItaly(row.lat, row.lon, addr.country_code || "it", row.display_name || "")) {
+        continue;
+      }
 
       if (zoneVariants.length > 0) {
         const hay = normalizeText(
@@ -522,7 +580,7 @@ async function searchNominatimUnrestricted(citta, zona = "") {
         email: contacts.email
       });
     }
-    if (items.length >= 160) break;
+    if (items.length >= 140) break;
   }
 
   return items;
@@ -564,7 +622,7 @@ function mergeAndDeduplicate(pools = [], limit = 100) {
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    service: "vocalis-estrattore-ristoranti-v11",
+    service: "vocalis-estrattore-ristoranti-v12",
     timestamp: new Date().toISOString()
   });
 });
@@ -582,9 +640,9 @@ app.get("/api/restaurants", async (req, res) => {
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
 
     const [overpassPool, photonPool, nominatimPool] = await Promise.all([
-      searchOverpassUnrestricted(citta, zona, limit),
-      searchPhotonUnrestricted(citta, zona),
-      searchNominatimUnrestricted(citta, zona)
+      searchOverpassItalianCity(citta, zona, limit),
+      searchPhotonItalian(citta, zona),
+      searchNominatimItalian(citta, zona)
     ]);
 
     let items = mergeAndDeduplicate([overpassPool, photonPool, nominatimPool], limit);
@@ -613,5 +671,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Vocalis Lead Extractor v11 in ascolto sulla porta ${PORT}`);
+  console.log(`Vocalis Lead Extractor v12 in ascolto sulla porta ${PORT}`);
 });
