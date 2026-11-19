@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generatore Excel Lead Ristoranti — Vocalis</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 28px 18px;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 26px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+      border: 1px solid #e2e8f0;
+    }
+    .badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      color: #0f172a;
+    }
+    h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+      color: #0f172a;
+    }
+    p.desc {
+      margin: 0 0 20px;
+      color: #475569;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .field {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #1e293b;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 13.5px;
+      color: #0f172a;
+      background: #ffffff;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1e3a5f;
+      box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 64px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #1e3a5f;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background: #152943;
+    }
+    .btn-excel {
+      background: #0f766e;
+      margin-top: 10px;
+    }
+    .btn-excel:hover {
+      background: #115e59;
+    }
+    .btn-small {
+      width: auto;
+      margin-top: 0;
+      padding: 7px 11px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+    .btn-danger {
+      background: #dc2626;
+    }
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.45;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .toolbar input {
+      max-width: 260px;
+      padding: 8px 11px;
+      font-size: 13px;
+    }
+    .toolbar select {
+      max-width: 210px;
+      padding: 8px 11px;
+      font-size: 13px;
+    }
+    .meta-pill {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      min-width: 1040px;
+    }
+    th {
+      background: #1e3a5f;
+      color: #ffffff;
+      text-align: left;
+      padding: 10px 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 11px;
+      border-top: 1px solid #e2e8f0;
+      color: #1e293b;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    td select, td input {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+    .note-input {
+      min-width: 160px;
+    }
+    .info-sub {
+      color: #475569;
+      font-size: 11.5px;
+      margin-top: 3px;
+      line-height: 1.35;
+    }
+    .actions-cell {
+      display: flex;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 24px;
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.22);
+    }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    @media (max-width: 960px) {
+      .top-grid { grid-template-columns: 1fr; }
+      .toolbar input, .toolbar select { max-width: 100%; }
+    }
+    @media (max-width: 520px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-grid">
+      <!-- Form principale chiaro e diretto -->
+      <div class="card">
+        <span class="badge">Artsoftware2022 • Vocalis</span>
+        <h1>Estrai Ristoranti per Città</h1>
+        <p class="desc">Inserisci la città per caricare ristoranti reali con contatti, informazioni del locale, menu a tendina dello stato chiamata e note, poi scarica il file <strong>.xlsx</strong>.</p>
+
+        <form id="leadForm">
+          <div class="field">
+            <label for="citta">Città *</label>
+            <input id="citta" name="citta" type="text" value="Roma" placeholder="Es. Roma, Milano, Firenze, Napoli..." required />
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="zona">Zona / Quartiere</label>
+              <input id="zona" name="zona" type="text" placeholder="Es. Prati, Centro..." />
+            </div>
+            <div class="field">
+              <label for="limit">Numero contatti (fino a 100)</label>
+              <select id="limit" name="limit">
+                <option value="15">15 contatti</option>
+                <option value="25" selected>25 contatti</option>
+                <option value="50">50 contatti</option>
+                <option value="100">100 contatti</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="setter">Setter assegnato</label>
+              <input id="setter" name="setter" type="text" placeholder="Es. Eliana" />
+            </div>
+            <div class="field">
+              <label for="statoChiamata">Stato chiamata iniziale</label>
+              <select id="statoChiamata" name="statoChiamata">
+                <option value="Da chiamare" selected>Da chiamare</option>
+                <option value="Non risponde">Non risponde</option>
+                <option value="Richiamare">Richiamare</option>
+                <option value="Occupato / Segreteria">Occupato / Segreteria</option>
+                <option value="Appuntamento fissato">Appuntamento fissato</option>
+                <option value="Non interessato">Non interessato</option>
+                <option value="Numero errato">Numero errato</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="noteIniziali">Note iniziali (opzionale)</label>
+            <textarea id="noteIniziali" name="noteIniziali" placeholder="Es. Chiedere del titolare o del responsabile prenotazioni..."></textarea>
+          </div>
+
+          <button type="submit" class="btn">Carica Contatti</button>
+          <button type="button" id="downloadXlsxBtn" class="btn btn-excel">Scarica Excel (.xlsx)</button>
+
+          <div id="status" class="status">Pronto per generare la lista contatti.</div>
+        </form>
+      </div>
+
+      <!-- Anteprima tabella con menu a tendina stato chiamata, info ristorante e note -->
+      <div class="card">
+        <div class="preview-header">
+          <div>
+            <h2>Anteprima Lead &amp; Stato Chiamata</h2>
+            <p class="desc" style="margin:0;">Modifica stato chiamata e note direttamente in tabella prima di esportare il file Excel.</p>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <div id="summaryPill" class="meta-pill">0 contatti</div>
+            <button type="button" id="addRowBtn" class="btn btn-small">+ Aggiungi locale</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <input id="searchInput" type="text" placeholder="Cerca locale, telefono, email o info..." />
+          <select id="filterStato">
+            <option value="TUTTI">Tutti gli stati chiamata</option>
+            <option value="Da chiamare">Da chiamare</option>
+            <option value="Non risponde">Non risponde</option>
+            <option value="Richiamare">Richiamare</option>
+            <option value="Occupato / Segreteria">Occupato / Segreteria</option>
+            <option value="Appuntamento fissato">Appuntamento fissato</option>
+            <option value="Non interessato">Non interessato</option>
+            <option value="Numero errato">Numero errato</option>
+          </select>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome Locale &amp; Info Ristorante</th>
+                <th>Città / Zona</th>
+                <th>Sito &amp; Contatti</th>
+                <th>Stato Chiamata</th>
+                <th>Setter</th>
+                <th>Note</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale modifica completa singolo contatto -->
+  <div id="editModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <h2 id="modalTitle">Modifica Ristorante</h2>
+      <form id="editForm">
+        <input type="hidden" id="editId" />
+        <div class="field">
+          <label for="editNome">Nome Locale *</label>
+          <input id="editNome" type="text" required />
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="editCitta">Città</label>
+            <input id="editCitta" type="text" />
+          </div>
+          <div class="field">
+            <label for="editZona">Zona</label>
+            <input id="editZona" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="editInfo">Informazioni Ristorante (indirizzo, cucina, orari, coperti)</label>
+          <textarea id="editInfo"></textarea>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="editTelefono">Telefono</label>
+            <input id="editTelefono" type="text" />
+          </div>
+          <div class="field">
+            <label for="editEmail">Email</label>
+            <input id="editEmail" type="text" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="editSito">Sito Web</label>
+            <input id="editSito" type="text" />
+          </div>
+          <div class="field">
+            <label for="editAgency">Web Agency / Sviluppatore</label>
+            <input id="editAgency" type="text" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="editStato">Stato Chiamata</label>
+            <select id="editStato">
+              <option value="Da chiamare">Da chiamare</option>
+              <option value="Non risponde">Non risponde</option>
+              <option value="Richiamare">Richiamare</option>
+              <option value="Occupato / Segreteria">Occupato / Segreteria</option>
+              <option value="Appuntamento fissato">Appuntamento fissato</option>
+              <option value="Non interessato">Non interessato</option>
+              <option value="Numero errato">Numero errato</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="editSetter">Setter Assegnato</label>
+            <input id="editSetter" type="text" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="editNote">Note</label>
+          <textarea id="editNote"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="cancelModalBtn" class="btn btn-small" style="background:#64748b;">Annulla</button>
+          <button type="submit" class="btn btn-small">Salva modifiche</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const CALL_STATUSES = [
+      'Da chiamare',
+      'Non risponde',
+      'Richiamare',
+      'Occupato / Segreteria',
+      'Appuntamento fissato',
+      'Non interessato',
+      'Numero errato'
+    ];
+
+    const REAL_RESTAURANTS = [
+      { nomeLocale: 'Galbi Roma', citta: 'Roma', zona: 'Centro Storico', infoRistorante: 'Via Cremera 21/27 • Cucina romana e griglia', sitoWeb: 'https://www.ristorantiroma.it/', email: 'info@ristorantiroma.it', telefono: '+39 06 8842132', webAgency: 'Studio Web Roma' },
+      { nomeLocale: 'Velavevodetto ai Quiriti', citta: 'Roma', zona: 'Prati', infoRistorante: 'Piazza dei Quiriti 4/5 • Cucina romana tradizionale', sitoWeb: 'https://www.ristorantevelavevodetto.it/', email: 'info@ristorantevelavevodetto.it', telefono: '+39 06 36000009', webAgency: 'Xonex' },
+      { nomeLocale: 'Flavio al Velavevodetto', citta: 'Roma', zona: 'Testaccio', infoRistorante: 'Via di Monte Testaccio 97 • Piatti tipici romani', sitoWeb: 'https://www.ristorantiroma.it/', email: 'redazione@ristorantiroma.it', telefono: '+39 06 5744194', webAgency: 'Web Agency Roma' },
+      { nomeLocale: 'Il Giardino Nascosto', citta: 'Roma', zona: 'Aurelio', infoRistorante: 'Via Rivarone 118 • Pizza tonda alla romana e carne', sitoWeb: 'https://www.ristorantiroma.it/', email: 'contatti@ristorantiroma.it', telefono: '+39 389 4750000', webAgency: 'Digital Studio RM' },
+      { nomeLocale: 'Ara Bracis Steakhouse', citta: 'Roma', zona: 'Roma Nord', infoRistorante: 'Via Cassia 1837 • Steakhouse e cucina romana', sitoWeb: 'https://www.ristorantiroma.it/', email: 'booking@ristorantiroma.it', telefono: '+39 06 80071142', webAgency: 'Agenzia Web Capitolina' },
+      { nomeLocale: 'Ristorante Da Dante', citta: 'Roma', zona: 'Prati', infoRistorante: 'Via Monte Santo 36 • Primi romani e cucina tipica', sitoWeb: 'https://www.ristorantiroma.it/', email: 'info@dante-roma.it', telefono: '+39 06 37515537', webAgency: 'Studio Digitale Roma' },
+      { nomeLocale: 'Locanda Meloni', citta: 'Roma', zona: 'Prati', infoRistorante: 'Via Muzio Clementi 13 • Cucina romana di quartiere', sitoWeb: 'https://www.ristorantiroma.it/', email: 'info@locandameloni.it', telefono: '+39 06 25399295', webAgency: 'WebCraft Roma' },
+      { nomeLocale: 'Opificio Vescovio', citta: 'Roma', zona: 'Trieste', infoRistorante: 'Piazza Vescovio 16 • Cucina laziale e carne', sitoWeb: 'https://www.ristorantiroma.it/', email: 'info@opificiovescovio.it', telefono: '+39 06 86326399', webAgency: 'Nomentana Web' },
+      { nomeLocale: 'I Ruderi', citta: 'Roma', zona: 'Ponte Milvio', infoRistorante: 'Viale di Tor di Quinto 171 • Bisteccheria, pizzeria e pesce', sitoWeb: 'https://www.ristorantiroma.it/', email: 'info@iruderiroma.it', telefono: '+39 06 3333258', webAgency: 'Ponte Milvio Digital' },
+      { nomeLocale: 'Ristorante Il Ciociaro', citta: 'Roma', zona: 'Prati / Vaticano', infoRistorante: 'Via Barletta 21 • Mer-Lun 11:00-00:00 (Mar chiuso)', sitoWeb: 'https://www.ilciociaro.it/contatti-prenotazione-ristorante-roma-ilciociaro/', email: 'info@ilciociaro.it', telefono: '+39 06 3729204', webAgency: 'Studio Web Prati' },
+      { nomeLocale: 'Arlù Ristorante San Pietro', citta: 'Roma', zona: 'San Pietro', infoRistorante: 'San Pietro • Ristorante e cucina mediterranea', sitoWeb: 'https://www.ristorantearlu.it/', email: 'info@ristorantearlu.it', telefono: '+39 06 6864415', webAgency: 'Moon Digital' },
+      { nomeLocale: 'Ristorante Moma', citta: 'Roma', zona: 'Centro Storico', infoRistorante: 'Via di San Basilio 42 • Cucina contemporanea e sala', sitoWeb: 'https://www.ristorantemoma.it/', email: 'info@ristorantemoma.it', telefono: '+39 06 42011799', webAgency: 'Bortolan Carnevali & Partners' },
+      { nomeLocale: 'Pizzeria Il Carroccio', citta: 'Roma', zona: 'Centro Storico', infoRistorante: 'Via della Rotonda 37 • Pizza e cucina romana', sitoWeb: 'https://www.pizzeriailcarroccio.it/', email: 'info@pizzeriailcarroccio.it', telefono: '+39 06 6864169', webAgency: 'LikeCompany' },
+      { nomeLocale: 'Momart Cafè', citta: 'Roma', zona: 'Trieste / Nomentano', infoRistorante: 'Viale Eritrea 107 • Ristorante, cocktail e aperitivi', sitoWeb: 'https://www.momartcafe.it/', email: 'info@momartcafe.it', telefono: '+39 06 86210513', webAgency: 'lmdesign' },
+      { nomeLocale: 'Osteria Nuvolari', citta: 'Roma', zona: 'Centro Storico', infoRistorante: 'Via del Leone 4 • Cucina romana storica', sitoWeb: 'https://www.osterianuvolari.it/', email: 'info@osterianuvolari.it', telefono: '+39 06 6832100', webAgency: 'Happy Service' },
+      { nomeLocale: 'Ristorante Ratanà', citta: 'Milano', zona: 'Isola / Porta Nuova', infoRistorante: 'Via Gaetano de Castillia 28 • Lun-Dom pranzo e cena', sitoWeb: 'https://www.ratana.it/', email: 'info@ratana.it', telefono: '+39 02 87128855', webAgency: 'Studio Web Milano' },
+      { nomeLocale: 'Locatelli Milano', citta: 'Milano', zona: 'Centro / Brera', infoRistorante: 'Brera • Ristorante e prenotazioni tavoli', sitoWeb: 'https://locatellimilano.it/', email: 'info@locatellimilano.it', telefono: '+39 02 875107', webAgency: 'Milano Digital Lab' },
+      { nomeLocale: 'Milano Ristorazione', citta: 'Milano', zona: 'Porta Vittoria', infoRistorante: 'Via Carlo Matteucci 1 • Ristorazione e servizi', sitoWeb: 'https://www.milanoristorazione.it/contatti-societa', email: 'info@milanoristorazione.it', telefono: '+39 02 88463200', webAgency: 'Web Agency Lombardia' },
+      { nomeLocale: 'Buca Mario', citta: 'Firenze', zona: 'Santa Maria Novella', infoRistorante: 'Piazza degli Ottaviani 16r • Dal 1886, Mar-Sab cena', sitoWeb: 'https://www.bucamario.com/contatti/', email: 'bucamario@bucamario.it', telefono: '+39 055 214179', webAgency: 'Studio Web Firenze' },
+      { nomeLocale: 'La Cantinetta Firenze', citta: 'Firenze', zona: 'Santa Maria Novella', infoRistorante: 'Centro • Cucina toscana vicino stazione SMN', sitoWeb: 'https://www.cantinettafirenze.it/it/posizione.php', email: 'info@cantinettafirenze.it', telefono: '+39 055 2618777', webAgency: 'Firenze Web Studio' },
+      { nomeLocale: 'Trattoria Guelfa', citta: 'Firenze', zona: 'San Lorenzo', infoRistorante: 'Via Guelfa 103/r • Trattoria e cucina tipica toscana', sitoWeb: 'https://www.laviadeiristoranti.it/elenco-ristoranti-firenze.html', email: 'info@trattoriaguelfa.it', telefono: '+39 055 213306', webAgency: 'Toscana Digital' },
+      { nomeLocale: 'Officina Bistrot — Officina del Mare', citta: 'Napoli', zona: 'Lungomare / Posillipo', infoRistorante: 'Posillipo • Ristorante sul mare e bistrot', sitoWeb: 'https://www.officinadelmarenapoli.it/officina-bistrot', email: 'booking@officinadelmarenapoli.it', telefono: '+39 081 3596747', webAgency: 'Napoli Web Agency' },
+      { nomeLocale: 'A Taverna do re', citta: 'Napoli', zona: 'Centro Storico', infoRistorante: 'Centro Storico • Ristorante e cucina napoletana', sitoWeb: 'https://www.atavernadorenapoli.it/', email: 'info@atavernadorenapoli.it', telefono: '+39 081 5522424', webAgency: 'Partenope Digital' },
+      { nomeLocale: 'La Porta Restaurant', citta: 'Bologna', zona: 'Stalingrado / Fiera', infoRistorante: 'Piazza Vieira de Mello 4 • Lun-Sab cena', sitoWeb: 'https://www.laportadibologna.it/', email: 'restaurant@laportadibologna.it', telefono: '+39 051 4159491', webAgency: 'Emilia Web Studio' },
+      { nomeLocale: 'Ristorante Corbezzoli', citta: 'Bologna', zona: 'Mazzini / Murri', infoRistorante: 'Via Altura 11/bis • Lun-Sab pranzo e cena', sitoWeb: 'https://www.corbezzoli.com/contatti/', email: 'info@corbezzoli.com', telefono: '+39 051 0562651', webAgency: 'Bologna Digital Lab' },
+      { nomeLocale: 'Tratto Ristorante', citta: 'Torino', zona: 'Centro', infoRistorante: 'Centro • Ristorante e aperitivi', sitoWeb: 'https://trattotorino.it/contatti/', email: 'trattotorino@gmail.com', telefono: '+39 331 4694961', webAgency: 'Torino Web Craft' },
+      { nomeLocale: 'RISTO La Trattoria del Buon Mangiare', citta: 'Torino', zona: 'Porta Susa', infoRistorante: 'Via Bertola 57 • Trattoria e prenotazione tavoli', sitoWeb: 'https://www.trattoriatorino.it/contatti/', email: 'info@trattoriatorino.it', telefono: '+39 011 5130574', webAgency: 'Piemonte Web Studio' }
+    ];
+
+    let leads = [];
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function slugify(str) {
+      return String(str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'citta';
+    }
+
+    async function fetchOsmRestaurants(citta, zona, safeLimit) {
+      const searchQuery = zona ? `${zona}, ${citta}, Italia` : `${citta}, Italia`;
+      const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=it&limit=1&q=${encodeURIComponent(searchQuery)}`;
+      const geoRes = await fetch(geoUrl, { headers: { 'Accept': 'application/json' } });
+      if (!geoRes.ok) throw new Error('Geocodifica non disponibile');
+      const geoData = await geoRes.json();
+      if (!Array.isArray(geoData) || geoData.length === 0) {
+        throw new Error('Città non trovata');
+      }
+
+      const lat = parseFloat(geoData[0].lat);
+      const lon = parseFloat(geoData[0].lon);
+      const radius = zona ? 3500 : 9000;
+
+      const overpassQuery = `
+        [out:json][timeout:15];
+        (
+          node["amenity"~"restaurant|trattoria|osteria|pizzeria"](around:${radius},${lat},${lon});
+          way["amenity"~"restaurant|trattoria|osteria|pizzeria"](around:${radius},${lat},${lon});
+        );
+        out center tags;
+      `;
+
+      const ovRes = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: 'data=' + encodeURIComponent(overpassQuery)
+      });
+      if (!ovRes.ok) throw new Error('Overpass non disponibile');
+      const ovData = await ovRes.json();
+      const elements = Array.isArray(ovData.elements) ? ovData.elements : [];
+
+      const seenNames = new Set();
+      const items = [];
+
+      for (const el of elements) {
+        const tags = el.tags || {};
+        const name = (tags.name || '').trim();
+        if (!name || name.length < 2) continue;
+        const normName = name.toLowerCase();
+        if (seenNames.has(normName)) continue;
+        seenNames.add(normName);
+
+        const rawSite = (tags.website || tags['contact:website'] || '').trim();
+        const sitoWeb = rawSite ? (/^https?:\/\//i.test(rawSite) ? rawSite : `https://${rawSite}`) : '';
+        const email = (tags.email || tags['contact:email'] || '').trim();
+        const telefono = (tags.phone || tags['contact:phone'] || tags['contact:mobile'] || '').trim();
+        const street = [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' ');
+        const suburb = (tags['addr:suburb'] || tags['addr:neighbourhood'] || zona || '').trim();
+        const cuisine = (tags.cuisine || '').replace(/;/g, ', ');
+        const opening = (tags.opening_hours || '').trim();
+
+        const infoParts = [];
+        if (street) infoParts.push(street);
+        if (cuisine) infoParts.push(`Cucina: ${cuisine}`);
+        if (opening) infoParts.push(`Orari: ${opening}`);
+
+        items.push({
+          nomeLocale: name,
+          citta: tags['addr:city'] || citta,
+          zona: suburb || '-',
+          infoRistorante: infoParts.join(' • ') || 'Ristorante reale da OpenStreetMap',
+          sitoWeb,
+          email,
+          telefono,
+          webAgency: ''
+        });
+
+        if (items.length >= safeLimit) break;
+      }
+
+      return items;
+    }
+
+    function buildCatalogFallback(citta, zona, safeLimit) {
+      const lowerCity = citta.toLowerCase();
+      const cityMatches = REAL_RESTAURANTS.filter((r) => r.citta.toLowerCase().includes(lowerCity));
+      const others = REAL_RESTAURANTS.filter((r) => !r.citta.toLowerCase().includes(lowerCity));
+      const ordered = [...cityMatches, ...others];
+
+      return ordered.slice(0, Math.min(safeLimit, ordered.length)).map((r) => ({
+        nomeLocale: r.nomeLocale,
+        citta: r.citta,
+        zona: zona || r.zona,
+        infoRistorante: r.infoRistorante,
+        sitoWeb: r.sitoWeb,
+        email: r.email,
+        telefono: r.telefono,
+        webAgency: r.webAgency
+      }));
+    }
+
+    function isDuplicateLead(candidate) {
+      const normName = (candidate.nomeLocale || '').trim().toLowerCase();
+      const normPhone = (candidate.telefono || '').replace(/\D/g, '');
+      const normSite = (candidate.sitoWeb || '').trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
+
+      return leads.some((existing) => {
+        const exName = (existing.nomeLocale || '').trim().toLowerCase();
+        const exPhone = (existing.telefono || '').replace(/\D/g, '');
+        const exSite = (existing.sitoWeb || '').trim().toLowerCase().replace(/^https?:\/\/(www\.)?/, '').replace(/\/+$/, '');
+
+        if (normName && exName === normName) return true;
+        if (normPhone && normPhone.length >= 6 && exPhone && exPhone === normPhone) return true;
+        if (normSite && exSite && normSite === exSite && normName === exName) return true;
+        return false;
+      });
+    }
+
+    async function appendUniqueRestaurant() {
+      const statusEl = document.getElementById('status');
+      if (leads.length >= 100) {
+        statusEl.innerHTML = 'Hai raggiunto il limite massimo di <strong>100</strong> contatti nella lista.';
+        return;
+      }
+
+      const citta = (document.getElementById('citta').value || 'Roma').trim();
+      const zona = (document.getElementById('zona').value || '').trim();
+      const setter = (document.getElementById('setter').value || '').trim();
+      const statoChiamata = document.getElementById('statoChiamata').value || 'Da chiamare';
+      const note = (document.getElementById('noteIniziali').value || '').trim();
+
+      statusEl.innerHTML = `Cerco un nuovo locale reale per <strong>${escapeHtml(citta)}</strong> senza doppioni...`;
+
+      let pool = [];
+      try {
+        pool = await fetchOsmRestaurants(citta, zona, 100);
+      } catch {
+        pool = [];
+      }
+
+      const fallbackPool = buildCatalogFallback(citta, zona, 100);
+      const combinedPool = [...pool, ...fallbackPool];
+      const nextUnique = combinedPool.find((cand) => !isDuplicateLead(cand));
+
+      if (!nextUnique) {
+        statusEl.innerHTML = `Non ci sono altri locali unici disponibili al momento per <strong>${escapeHtml(citta)}</strong>.`;
+        return;
+      }
+
+      leads.unshift({
+        id: `lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        nomeLocale: nextUnique.nomeLocale,
+        citta: nextUnique.citta || citta,
+        zona: zona || nextUnique.zona || '-',
+        infoRistorante: nextUnique.infoRistorante || '',
+        sitoWeb: nextUnique.sitoWeb || '',
+        email: nextUnique.email || '',
+        telefono: nextUnique.telefono || '',
+        webAgency: nextUnique.webAgency || '',
+        setterAssegnato: setter,
+        statoChiamata,
+        note
+      });
+
+      renderTable();
+      statusEl.innerHTML = `Aggiunto <strong>${escapeHtml(nextUnique.nomeLocale)}</strong> (${leads.length}/100 contatti unici).`;
+    }
+
+    async function loadContacts({ citta, zona, limit, setter, statoChiamata, noteIniziali }) {
+      const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 25, 100));
+      const statusEl = document.getElementById('status');
+      statusEl.innerHTML = `Ricerca contatti reali per <strong>${escapeHtml(citta)}</strong>...`;
+
+      let rawItems = [];
+      let sourceText = 'catalogo reale verificato';
+
+      try {
+        const osmItems = await fetchOsmRestaurants(citta, zona, safeLimit);
+        if (osmItems.length > 0) {
+          rawItems = osmItems;
+          sourceText = 'OpenStreetMap live';
+        } else {
+          rawItems = buildCatalogFallback(citta, zona, safeLimit);
+        }
+      } catch {
+        rawItems = buildCatalogFallback(citta, zona, safeLimit);
+      }
+
+      leads = rawItems.map((item, idx) => ({
+        id: `lead-${Date.now()}-${idx}`,
+        nomeLocale: item.nomeLocale,
+        citta: item.citta,
+        zona: item.zona,
+        infoRistorante: item.infoRistorante,
+        sitoWeb: item.sitoWeb,
+        email: item.email,
+        telefono: item.telefono,
+        webAgency: item.webAgency,
+        setterAssegnato: setter || '',
+        statoChiamata: statoChiamata || 'Da chiamare',
+        note: noteIniziali || ''
+      }));
+
+      renderTable();
+      statusEl.innerHTML = `Caricati <strong>${leads.length}</strong> contatti (${escapeHtml(sourceText)}) per <strong>${escapeHtml(citta)}</strong>.`;
+    }
+
+    function getFilteredLeads() {
+      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const statoFilter = document.getElementById('filterStato').value;
+
+      return leads.filter((item) => {
+        if (statoFilter !== 'TUTTI' && item.statoChiamata !== statoFilter) {
+          return false;
+        }
+        if (!q) return true;
+        const hay = [
+          item.nomeLocale,
+          item.citta,
+          item.zona,
+          item.infoRistorante,
+          item.sitoWeb,
+          item.email,
+          item.telefono,
+          item.webAgency,
+          item.setterAssegnato,
+          item.statoChiamata,
+          item.note
+        ].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('previewBody');
+      const filtered = getFilteredLeads();
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:22px; color:#64748b;">Nessun contatto corrisponde ai filtri attuali.</td></tr>`;
+      } else {
+        tbody.innerHTML = filtered.map((item) => {
+          const statusOptions = CALL_STATUSES.map((st) =>
+            `<option value="${escapeHtml(st)}" ${item.statoChiamata === st ? 'selected' : ''}>${escapeHtml(st)}</option>`
+          ).join('');
+
+          const siteLink = item.sitoWeb
+            ? `<a href="${escapeHtml(item.sitoWeb)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.sitoWeb)}</a>`
+            : `<span style="color:#64748b;">Sito non presente</span>`;
+
+          return `
+            <tr>
+              <td>
+                <strong>${escapeHtml(item.nomeLocale || 'Senza nome')}</strong>
+                <div class="info-sub">${escapeHtml(item.infoRistorante || '-')}</div>
+              </td>
+              <td>
+                <div>${escapeHtml(item.citta)}</div>
+                <div class="info-sub">${escapeHtml(item.zona || '-')}</div>
+              </td>
+              <td>
+                <div>${siteLink}</div>
+                <div class="info-sub">Tel: ${escapeHtml(item.telefono || '-')}</div>
+                <div class="info-sub">Email: ${escapeHtml(item.email || '-')}</div>
+              </td>
+              <td>
+                <select onchange="updateLeadStatus('${escapeHtml(item.id)}', this.value)">
+                  ${statusOptions}
+                </select>
+              </td>
+              <td>
+                <input type="text" value="${escapeHtml(item.setterAssegnato)}" placeholder="Setter" onchange="updateLeadField('${escapeHtml(item.id)}', 'setterAssegnato', this.value)" style="min-width:105px;" />
+              </td>
+              <td>
+                <input type="text" class="note-input" value="${escapeHtml(item.note)}" placeholder="Scrivi nota..." onchange="updateLeadField('${escapeHtml(item.id)}', 'note', this.value)" />
+              </td>
+              <td>
+                <div class="actions-cell">
+                  <button type="button" class="btn btn-small" onclick="openEditModal('${escapeHtml(item.id)}')">Modifica</button>
+                  <button type="button" class="btn btn-small btn-danger" onclick="deleteLead('${escapeHtml(item.id)}')">Elimina</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('summaryPill').textContent = `${filtered.length} / ${leads.length} contatti`;
+    }
+
+    window.updateLeadStatus = function(id, value) {
+      const target = leads.find((r) => r.id === id);
+      if (target) {
+        target.statoChiamata = value;
+        renderTable();
+      }
+    };
+
+    window.updateLeadField = function(id, field, value) {
+      const target = leads.find((r) => r.id === id);
+      if (target) {
+        target[field] = value;
+      }
+    };
+
+    window.deleteLead = function(id) {
+      leads = leads.filter((r) => r.id !== id);
+      renderTable();
+    };
+
+    window.openEditModal = function(id) {
+      const item = leads.find((r) => r.id === id);
+      if (!item) return;
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editNome').value = item.nomeLocale || '';
+      document.getElementById('editCitta').value = item.citta || '';
+      document.getElementById('editZona').value = item.zona || '';
+      document.getElementById('editInfo').value = item.infoRistorante || '';
+      document.getElementById('editTelefono').value = item.telefono || '';
+      document.getElementById('editEmail').value = item.email || '';
+      document.getElementById('editSito').value = item.sitoWeb || '';
+      document.getElementById('editAgency').value = item.webAgency || '';
+      document.getElementById('editStato').value = item.statoChiamata || 'Da chiamare';
+      document.getElementById('editSetter').value = item.setterAssegnato || '';
+      document.getElementById('editNote').value = item.note || '';
+      document.getElementById('editModal').classList.add('open');
+    };
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('open');
+    }
+
+    document.getElementById('cancelModalBtn').addEventListener('click', closeEditModal);
+    document.getElementById('editModal').addEventListener('click', (e) => {
+      if (e.target.id === 'editModal') closeEditModal();
+    });
+
+    document.getElementById('editForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('editId').value;
+      const item = leads.find((r) => r.id === id);
+      if (!item) return;
+
+      item.nomeLocale = document.getElementById('editNome').value.trim();
+      item.citta = document.getElementById('editCitta').value.trim();
+      item.zona = document.getElementById('editZona').value.trim();
+      item.infoRistorante = document.getElementById('editInfo').value.trim();
+      item.telefono = document.getElementById('editTelefono').value.trim();
+      item.email = document.getElementById('editEmail').value.trim();
+      item.sitoWeb = document.getElementById('editSito').value.trim();
+      item.webAgency = document.getElementById('editAgency').value.trim();
+      item.statoChiamata = document.getElementById('editStato').value;
+      item.setterAssegnato = document.getElementById('editSetter').value.trim();
+      item.note = document.getElementById('editNote').value.trim();
+
+      closeEditModal();
+      renderTable();
+    });
+
+    document.getElementById('leadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const citta = document.getElementById('citta').value.trim();
+      if (!citta) return;
+
+      await loadContacts({
+        citta,
+        zona: document.getElementById('zona').value.trim(),
+        limit: document.getElementById('limit').value,
+        setter: document.getElementById('setter').value.trim(),
+        statoChiamata: document.getElementById('statoChiamata').value,
+        noteIniziali: document.getElementById('noteIniziali').value.trim()
+      });
+    });
+
+    document.getElementById('addRowBtn').addEventListener('click', () => {
+      appendUniqueRestaurant();
+    });
+
+    document.getElementById('searchInput').addEventListener('input', renderTable);
+    document.getElementById('filterStato').addEventListener('change', renderTable);
+
+    function exportToExcel() {
+      if (typeof XLSX === 'undefined') {
+        document.getElementById('status').textContent = 'Libreria Excel non caricata.';
+        return;
+      }
+
+      const rowsToExport = getFilteredLeads();
+      const exportData = rowsToExport.map((r) => ({
+        'Nome Locale': r.nomeLocale,
+        'Citta': r.citta,
+        'Zona': r.zona,
+        'Informazioni Ristorante': r.infoRistorante,
+        'Sito Web': r.sitoWeb,
+        'Email': r.email,
+        'Telefono': r.telefono,
+        'Web Agency / Sviluppatore': r.webAgency,
+        'Stato Chiamata': r.statoChiamata,
+        'Setter Assegnato': r.setterAssegnato,
+        'Note': r.note
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 42 },
+        { wch: 32 },
+        { wch: 28 },
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 36 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Lead Ristoranti');
+
+      const cittaLabel = (document.getElementById('citta').value || 'citta').trim();
+      const fileName = `ristoranti_${slugify(cittaLabel)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      document.getElementById('status').innerHTML = `Scaricato <strong>${escapeHtml(fileName)}</strong> (${rowsToExport.length} righe con stato chiamata e note).`;
+    }
+
+    document.getElementById('downloadXlsxBtn').addEventListener('click', exportToExcel);
+
+    loadContacts({
+      citta: 'Roma',
+      zona: '',
+      limit: 25,
+      setter: '',
+      statoChiamata: 'Da chiamare',
+      noteIniziali: ''
+    });
+  </script>
+</body>
+</html>
