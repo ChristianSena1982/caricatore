@@ -198,17 +198,6 @@
       margin-top: 3px;
       line-height: 1.38;
     }
-    .info-full {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 6px 8px;
-      font-size: 11.5px;
-      color: #334155;
-      margin-top: 5px;
-      line-height: 1.4;
-      word-break: break-word;
-    }
     .contact-mini {
       width: 100%;
       padding: 5px 7px;
@@ -257,14 +246,14 @@
   <div class="container">
     <div class="layout">
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis • Render v3</span>
+        <span class="badge">Artsoftware2022 • Vocalis • Render v4</span>
         <h1>Estrai Ristoranti Reali</h1>
-        <p class="desc">Combina Overpass, Photon, Nominatim ed arricchimento dai siti web ufficiali per estrarre fino a 100 locali, informazioni complete, sito, telefono, WhatsApp ed email, con export <strong>.xlsx</strong>.</p>
+        <p class="desc">Combina Overpass, Photon, Nominatim, ricerca contatti pubblici e siti web ufficiali per estrarre fino a 100 locali con export <strong>.xlsx</strong>.</p>
 
         <form id="leadForm">
           <div class="field">
             <label for="citta">Città italiana *</label>
-            <input id="citta" name="citta" type="text" value="Roma" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Cesena, Sassari..." required />
+            <input id="citta" name="citta" type="text" value="Milano" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Cesena, Sassari..." required />
             <datalist id="italianCities">
               <option value="Ancona"></option>
               <option value="Bari"></option>
@@ -313,8 +302,8 @@
 
           <div class="grid-2">
             <div class="field">
-              <label for="setter">Setter assegnato</label>
-              <input id="setter" name="setter" type="text" placeholder="Es. Eliana" />
+              <label for="setter">Setter assegnato (anche separati da virgola)</label>
+              <input id="setter" name="setter" type="text" placeholder="Es. Eliana oppure Eliana, Luca" />
             </div>
             <div class="field">
               <label for="statoIniziale">Stato chiamata iniziale</label>
@@ -346,13 +335,13 @@
         <div class="toolbar">
           <div>
             <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Mostra informazioni complete del locale (via, civico, CAP, cucina, orari, tipo) e campi modificabili per Sito, Telefono, WhatsApp ed Email.</p>
+            <p class="desc" style="margin:0;">Mostra informazioni del locale e campi modificabili per Sito, Telefono, WhatsApp, Email e Setter.</p>
           </div>
           <button id="addOneBtn" type="button" class="btn btn-add">+ Aggiungi riga manuale</button>
         </div>
 
         <div class="filters" style="margin-bottom:14px;">
-          <input id="searchInput" type="text" placeholder="Cerca locale, telefono, whatsapp, sito o email..." />
+          <input id="searchInput" type="text" placeholder="Cerca locale, telefono, whatsapp, sito, setter o email..." />
           <select id="filterStatus">
             <option value="">Tutti gli stati chiamata</option>
             <option value="Da chiamare">Da chiamare</option>
@@ -418,11 +407,19 @@
       return `https://wa.me/${withCountry}`;
     }
 
+    function parseSetters(rawInput) {
+      return String(rawInput || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
     function addManualRow() {
       const rawCity = (document.getElementById("citta").value || "").trim() || "Italia";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim() || "Centro";
-      const setterDefault = (document.getElementById("setter").value || "").trim();
+      const settersList = parseSetters(document.getElementById("setter").value);
+      const setterDefault = settersList[0] || "";
       const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
       const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
 
@@ -445,10 +442,10 @@
     }
 
     async function loadRealContacts() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Roma";
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Milano";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim();
-      const setterDefault = (document.getElementById("setter").value || "").trim();
+      const settersList = parseSetters(document.getElementById("setter").value);
       const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
       const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
       const targetLimit = Math.min(100, Math.max(1, parseInt(document.getElementById("limit").value || "100", 10)));
@@ -458,8 +455,8 @@
 
       leads = [];
       loadBtn.disabled = true;
-      loadBtn.textContent = "Estrazione in corso...";
-      statusBox.innerHTML = `Estrazione da Overpass, Photon, Nominatim e siti ufficiali per <strong>${escapeHtml(citta)}</strong>...`;
+      loadBtn.textContent = "Estrazione e arricchimento...";
+      statusBox.innerHTML = `Ricerca su Overpass, Photon, Nominatim, web e siti ufficiali per <strong>${escapeHtml(citta)}</strong>...`;
 
       try {
         const params = new URLSearchParams({
@@ -473,6 +470,10 @@
         const rawItems = Array.isArray(data.items) ? data.items : [];
 
         for (const raw of rawItems) {
+          const assignedSetter = settersList.length
+            ? settersList[leads.length % settersList.length]
+            : "";
+
           const record = {
             id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
             nome: raw.nome,
@@ -484,7 +485,7 @@
             whatsapp: raw.whatsapp || "",
             email: raw.email || "",
             statoChiamata: statoDefault,
-            setter: setterDefault,
+            setter: assignedSetter,
             note: noteDefault
           };
           if (!isDuplicate(record) && leads.length < targetLimit) {
@@ -547,8 +548,7 @@
           <tr>
             <td>
               <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
-              <div class="info-full">${escapeHtml(item.info || "Nessuna info aggiuntiva su mappa")}</div>
-              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Modifica indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
             </td>
             <td>
               <div><strong>${escapeHtml(item.citta)}</strong></div>
