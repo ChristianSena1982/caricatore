@@ -9,9 +9,11 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const OVERPASS_ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.openstreetmap.ru/api/interpreter"
+  "https://overpass.kumi.systems/api/interpreter"
 ];
+
+const CACHE = new Map();
+const CACHE_TTL_MS = 10 * 60 * 1000;
 
 function norm(str) {
   return String(str || "")
@@ -93,16 +95,16 @@ function cleanPhone(raw) {
   return s;
 }
 
-async function queryOverpass(ql) {
+async function queryOverpassFast(ql) {
   for (const url of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 16000);
+    const timer = setTimeout(() => controller.abort(), 9000);
     try {
       const resp = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent": "VocalisLeadExtractor/1.0"
+          "User-Agent": "VocalisLeadExtractor/1.2"
         },
         body: "data=" + encodeURIComponent(ql),
         signal: controller.signal
@@ -120,15 +122,15 @@ async function queryOverpass(ql) {
   return [];
 }
 
-async function getCityBbox(citta) {
+async function getCityBboxFast(citta) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 7000);
+  const timer = setTimeout(() => controller.abort(), 4500);
   try {
     const u = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
       citta + ", Italia"
     )}&format=jsonv2&countrycodes=it&limit=1`;
     const resp = await fetch(u, {
-      headers: { "User-Agent": "VocalisLeadExtractor/1.0" },
+      headers: { "User-Agent": "VocalisLeadExtractor/1.2" },
       signal: controller.signal
     });
     clearTimeout(timer);
@@ -148,46 +150,44 @@ app.get("/api/restaurants", async (req, res) => {
   try {
     const cittaRaw = String(req.query.citta || "").trim();
     const zona = String(req.query.zona || "").trim();
-    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit || "200", 10) || 200));
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit || "100", 10) || 100));
 
     if (!cittaRaw) {
       return res.status(400).json({ error: "Inserisci una città italiana." });
     }
 
     const citta = cittaRaw.charAt(0).toUpperCase() + cittaRaw.slice(1);
-    const cityEsc = citta.replace(/"/g, '\\"');
-    const bbox = await getCityBbox(citta);
+    const cacheKey = `${norm(citta)}|${norm(zona)}|${limit}`;
+    const cached = CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+      return res.json(cached.payload);
+    }
 
-    let elements = [];
-    if (bbox) {
-      const qlBbox = `
-[out:json][timeout:22];
+    const bbox = await getCityBboxFast(citta);
+    const cityEsc = citta.replace(/"/g, '\\"');
+    const outLimit = Math.min(800, limit * 2);
+
+    const ql = bbox
+      ? `
+[out:json][timeout:10];
 (
   node["amenity"="restaurant"]["name"](${bbox});
   way["amenity"="restaurant"]["name"](${bbox});
   node["cuisine"~"pizza",i]["name"](${bbox});
-  way["cuisine"~"pizza",i]["name"](${bbox});
 );
-out center tags 1500;
-`.trim();
-      elements = await queryOverpass(qlBbox);
-    }
-
-    if (elements.length === 0) {
-      const qlArea = `
-[out:json][timeout:22];
+out center tags ${outLimit};
+`.trim()
+      : `
+[out:json][timeout:10];
 area["name"~"^${cityEsc}$",i]->.a;
 (
   node["amenity"="restaurant"]["name"](area.a);
   way["amenity"="restaurant"]["name"](area.a);
-  node["cuisine"~"pizza",i]["name"](area.a);
-  way["cuisine"~"pizza",i]["name"](area.a);
 );
-out center tags 1500;
+out center tags ${outLimit};
 `.trim();
-      elements = await queryOverpass(qlArea);
-    }
 
+    const elements = await queryOverpassFast(ql);
     const zonaNorm = norm(zona);
     const dedup = new Map();
 
@@ -253,7 +253,9 @@ out center tags 1500;
       })
       .slice(0, limit);
 
-    return res.json({ citta, zona: zona || "Tutte", count: items.length, items });
+    const payload = { citta, zona: zona || "Tutte", count: items.length, items };
+    CACHE.set(cacheKey, { ts: Date.now(), payload });
+    return res.json(payload);
   } catch (err) {
     return res.status(500).json({ error: err.message || "Errore estrazione" });
   }
