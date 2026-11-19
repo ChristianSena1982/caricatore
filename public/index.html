@@ -33,8 +33,8 @@
     }
     .badge {
       display: inline-block;
-      background: #eff6ff;
-      color: #1d4ed8;
+      background: #ecfdf5;
+      color: #047857;
       font-size: 12px;
       font-weight: 600;
       padding: 4px 10px;
@@ -120,12 +120,28 @@
     .btn-export:hover:not(:disabled) {
       background: #115e59;
     }
+    .btn-clear {
+      background: #fff1f2;
+      color: #be123c;
+      border: 1px solid #fecdd3;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .btn-clear:hover {
+      background: #ffe4e6;
+    }
     .btn-add {
       background: #334155;
       color: #ffffff;
       padding: 8px 12px;
       font-size: 12.5px;
-      width: auto;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
     }
     .btn-add:hover:not(:disabled) {
       background: #1e293b;
@@ -147,6 +163,11 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 14px;
+    }
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .filters {
       display: flex;
@@ -209,14 +230,18 @@
     }
     .link-hint {
       display: inline-block;
-      margin-top: 2px;
-      margin-right: 8px;
+      margin-top: 4px;
+      margin-right: 10px;
       font-size: 11px;
       color: #0f766e;
+      font-weight: 600;
       text-decoration: none;
     }
     .link-hint:hover {
       text-decoration: underline;
+    }
+    .link-google {
+      color: #1d4ed8;
     }
     .row-select {
       padding: 6px 8px;
@@ -246,14 +271,14 @@
   <div class="container">
     <div class="layout">
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis • Render v4</span>
+        <span class="badge">Artsoftware2022 • Vocalis • Salvataggio Auto</span>
         <h1>Estrai Ristoranti Reali</h1>
-        <p class="desc">Combina Overpass, Photon, Nominatim, ricerca contatti pubblici e siti web ufficiali per estrarre fino a 100 locali con export <strong>.xlsx</strong>.</p>
+        <p class="desc">Estrae fino a 100 locali reali per città, salva automaticamente ogni modifica del setter nel browser ed esporta in <strong>.xlsx</strong>.</p>
 
         <form id="leadForm">
           <div class="field">
             <label for="citta">Città italiana *</label>
-            <input id="citta" name="citta" type="text" value="Milano" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Cesena, Sassari..." required />
+            <input id="citta" name="citta" type="text" value="Terni" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Terni, Siena..." required />
             <datalist id="italianCities">
               <option value="Ancona"></option>
               <option value="Bari"></option>
@@ -277,6 +302,8 @@
               <option value="Roma"></option>
               <option value="Salerno"></option>
               <option value="Sassari"></option>
+              <option value="Siena"></option>
+              <option value="Terni"></option>
               <option value="Torino"></option>
               <option value="Trento"></option>
               <option value="Trieste"></option>
@@ -288,7 +315,7 @@
           <div class="grid-2">
             <div class="field">
               <label for="zona">Zona / Quartiere</label>
-              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Trastevere..." />
+              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Borgo Rivo..." />
             </div>
             <div class="field">
               <label for="limit">Numero contatti (fino a 100)</label>
@@ -335,9 +362,12 @@
         <div class="toolbar">
           <div>
             <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Mostra informazioni del locale e campi modificabili per Sito, Telefono, WhatsApp, Email e Setter.</p>
+            <p class="desc" style="margin:0;">Ogni modifica viene salvata automaticamente in questo browser anche se ricarichi la pagina.</p>
           </div>
-          <button id="addOneBtn" type="button" class="btn btn-add">+ Aggiungi riga manuale</button>
+          <div class="toolbar-actions">
+            <button id="addOneBtn" type="button" class="btn-add">+ Aggiungi riga manuale</button>
+            <button id="clearStorageBtn" type="button" class="btn-clear">Svuota salvataggio</button>
+          </div>
         </div>
 
         <div class="filters" style="margin-bottom:14px;">
@@ -360,7 +390,7 @@
               <tr>
                 <th style="min-width:290px;">Nome Locale &amp; Info Ristorante</th>
                 <th>Città / Zona</th>
-                <th style="min-width:250px;">Sito, Tel, WhatsApp &amp; Email</th>
+                <th style="min-width:255px;">Sito, Tel, WhatsApp &amp; Email</th>
                 <th>Stato Chiamata</th>
                 <th>Setter</th>
                 <th>Note</th>
@@ -374,6 +404,7 @@
   </div>
 
   <script>
+    const STORAGE_KEY = "vocalis_leads_autosave_v8";
     const CALL_STATUSES = [
       "Da chiamare",
       "Non risponde",
@@ -385,6 +416,47 @@
     ];
 
     let leads = [];
+
+    function saveLeadsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          updatedAt: new Date().toISOString(),
+          citta: document.getElementById("citta").value || "",
+          zona: document.getElementById("zona").value || "",
+          setter: document.getElementById("setter").value || "",
+          leads
+        }));
+      } catch {
+        // ignora errori di quota storage
+      }
+    }
+
+    function restoreLeadsFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.leads) && parsed.leads.length > 0) {
+          leads = parsed.leads;
+          if (parsed.citta) document.getElementById("citta").value = parsed.citta;
+          if (parsed.zona) document.getElementById("zona").value = parsed.zona;
+          if (parsed.setter) document.getElementById("setter").value = parsed.setter;
+          renderTable();
+          document.getElementById("statusBox").innerHTML = `Ripristinati <strong>${leads.length}</strong> contatti salvati in automatico (ultimo salvataggio: <strong>${escapeHtml(new Date(parsed.updatedAt || Date.now()).toLocaleTimeString("it-IT"))}</strong>).`;
+          return true;
+        }
+      } catch {
+        // ignora
+      }
+      return false;
+    }
+
+    function clearSavedLeads() {
+      localStorage.removeItem(STORAGE_KEY);
+      leads = [];
+      renderTable();
+      document.getElementById("statusBox").innerHTML = `Salvataggio locale svuotato. Premi <strong>Carica Contatti Reali</strong> per estrarre una nuova lista.`;
+    }
 
     function normalizeKey(str) {
       return String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "").trim();
@@ -437,12 +509,13 @@
         setter: setterDefault,
         note: noteDefault
       });
+      saveLeadsToStorage();
       renderTable();
-      document.getElementById("statusBox").innerHTML = `Aggiunta riga manuale per <strong>${escapeHtml(citta)}</strong>. Totale righe: <strong>${leads.length}</strong>.`;
+      document.getElementById("statusBox").innerHTML = `Aggiunta riga manuale per <strong>${escapeHtml(citta)}</strong>. Totale righe: <strong>${leads.length}</strong> (salvato in automatico).`;
     }
 
     async function loadRealContacts() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Milano";
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Terni";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim();
       const settersList = parseSetters(document.getElementById("setter").value);
@@ -456,7 +529,7 @@
       leads = [];
       loadBtn.disabled = true;
       loadBtn.textContent = "Estrazione e arricchimento...";
-      statusBox.innerHTML = `Ricerca su Overpass, Photon, Nominatim, web e siti ufficiali per <strong>${escapeHtml(citta)}</strong>...`;
+      statusBox.innerHTML = `Estrazione multi-fonte (Overpass + Photon + Nominatim + web) per <strong>${escapeHtml(citta)}</strong>...`;
 
       try {
         const params = new URLSearchParams({
@@ -493,6 +566,7 @@
           }
         }
 
+        saveLeadsToStorage();
         renderTable();
         const withSite = leads.filter((x) => x.sito).length;
         const withWa = leads.filter((x) => x.whatsapp).length;
@@ -502,7 +576,7 @@
         if (leads.length === 0) {
           statusBox.innerHTML = `Nessun locale trovato per <strong>${escapeHtml(citta)}</strong> al momento. Puoi aggiungere righe con <strong>+ Aggiungi riga manuale</strong>.`;
         } else {
-          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong> • Email: <strong>${withEmail}</strong>).`;
+          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong> • Email: <strong>${withEmail}</strong>). Salvataggio automatico attivo.`;
         }
       } catch (err) {
         renderTable();
@@ -537,6 +611,8 @@
         ).join("");
 
         const waUrl = toWhatsAppLink(item.whatsapp);
+        const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${item.nome} ${item.citta} telefono`)}`;
+
         const siteLinkHtml = item.sito
           ? `<a class="link-hint" href="${escapeAttr(item.sito)}" target="_blank" rel="noopener noreferrer">Apri sito ↗</a>`
           : "";
@@ -549,6 +625,7 @@
             <td>
               <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
               <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+              <a class="link-hint link-google" href="${escapeAttr(googleSearchUrl)}" target="_blank" rel="noopener noreferrer">Apri su Google ↗</a>
             </td>
             <td>
               <div><strong>${escapeHtml(item.citta)}</strong></div>
@@ -582,6 +659,7 @@
       const target = leads.find((r) => r.id === id);
       if (target) {
         target[field] = value;
+        saveLeadsToStorage();
       }
     }
 
@@ -632,11 +710,14 @@
     });
 
     document.getElementById("addOneBtn").addEventListener("click", addManualRow);
+    document.getElementById("clearStorageBtn").addEventListener("click", clearSavedLeads);
     document.getElementById("exportBtn").addEventListener("click", exportToExcel);
     document.getElementById("searchInput").addEventListener("input", renderTable);
     document.getElementById("filterStatus").addEventListener("change", renderTable);
 
-    loadRealContacts();
+    if (!restoreLeadsFromStorage()) {
+      loadRealContacts();
+    }
   </script>
 </body>
 </html>
