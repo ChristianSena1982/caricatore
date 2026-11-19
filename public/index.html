@@ -3,291 +3,438 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Artsoftware2022 • Vocalis — Estrattore Lead Ristoranti Italia (.xlsx)</title>
+  <title>Artsoftware2022 • Vocalis — Ristoranti &amp; Pizzerie (.xlsx)</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
-    * { box-sizing: border-box; }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #eef2f6;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #dbe3ec;
+      --primary: #16324f;
+      --primary-hover: #0e2236;
+      --accent: #0f766e;
+      --accent-hover: #115e59;
+      --google: #1d4ed8;
+      --danger-bg: #fff1f2;
+      --danger-text: #be123c;
+      --danger-border: #fecdd3;
+      --radius: 12px;
+    }
+
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f1f5f9;
-      color: #0f172a;
-      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.4;
     }
-    .container {
-      max-width: 1420px;
+
+    .app {
+      max-width: 1480px;
       margin: 0 auto;
     }
-    .layout {
+
+    .grid-main {
       display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 22px;
+      grid-template-columns: 350px minmax(0, 1fr);
+      gap: 18px;
       align-items: start;
     }
+
     .card {
-      background: #ffffff;
-      border-radius: 14px;
-      padding: 22px;
-      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07);
-      border: 1px solid #e2e8f0;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+      min-width: 0;
     }
+
     .badge {
       display: inline-block;
-      background: #ecfdf5;
-      color: #047857;
-      font-size: 12px;
-      font-weight: 600;
+      background: #e6f7f5;
+      color: #0f766e;
+      font-size: 11.5px;
+      font-weight: 700;
       padding: 4px 10px;
       border-radius: 999px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
+
     h1 {
-      margin: 0 0 8px;
-      font-size: 21px;
-      color: #0f172a;
-    }
-    h2 {
       margin: 0 0 6px;
-      font-size: 18px;
-      color: #0f172a;
+      font-size: 20px;
+      font-weight: 700;
     }
-    p.desc {
-      margin: 0 0 16px;
-      color: #475569;
-      font-size: 13px;
-      line-height: 1.45;
+
+    h2 {
+      margin: 0 0 4px;
+      font-size: 17px;
+      font-weight: 700;
     }
-    .field {
-      margin-bottom: 13px;
-    }
-    label {
-      display: block;
+
+    .desc {
+      margin: 0 0 14px;
       font-size: 12.5px;
-      font-weight: 600;
-      margin-bottom: 5px;
-      color: #1e293b;
+      color: var(--muted);
     }
-    input, select, textarea {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #0f172a;
-      background: #fff;
-      font-family: inherit;
+
+    .field {
+      margin-bottom: 12px;
     }
-    textarea {
-      min-height: 65px;
-      resize: vertical;
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #1e3a5f;
-      box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
-    }
-    .grid-2 {
+
+    .row-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
-    .btn {
-      width: 100%;
-      padding: 11px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease;
-    }
-    .btn:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
-    .btn-primary {
-      background: #1e3a5f;
-      color: #ffffff;
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: #152943;
-    }
-    .btn-export {
-      background: #0f766e;
-      color: #ffffff;
-      margin-top: 10px;
-    }
-    .btn-export:hover:not(:disabled) {
-      background: #115e59;
-    }
-    .btn-clear {
-      background: #fff1f2;
-      color: #be123c;
-      border: 1px solid #fecdd3;
-      padding: 8px 12px;
+
+    label {
+      display: block;
       font-size: 12px;
       font-weight: 600;
+      margin-bottom: 4px;
+      color: #1e293b;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid #cbd5e1;
       border-radius: 8px;
-      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+      background: #ffffff;
     }
-    .btn-clear:hover {
-      background: #ffe4e6;
+
+    textarea {
+      min-height: 62px;
+      resize: vertical;
     }
-    .btn-add {
-      background: #334155;
-      color: #ffffff;
-      padding: 8px 12px;
-      font-size: 12.5px;
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22, 50, 79, 0.12);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 11px 14px;
       border: none;
       border-radius: 8px;
+      font-size: 13.5px;
       font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.15s ease;
     }
-    .btn-add:hover:not(:disabled) {
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-export {
+      background: var(--accent);
+      color: #fff;
+      margin-top: 8px;
+    }
+
+    .btn-export:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-sm {
+      width: auto;
+      padding: 8px 12px;
+      font-size: 12px;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #fff;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
       background: #1e293b;
     }
+
+    .btn-danger {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #ffe4e6;
+    }
+
     .status-box {
-      margin-top: 14px;
+      margin-top: 12px;
       padding: 10px 12px;
       border-radius: 8px;
       background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      font-size: 12.5px;
+      border: 1px solid var(--border);
+      font-size: 12px;
       color: #334155;
-      line-height: 1.45;
     }
-    .toolbar {
+
+    .top-bar {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
     }
-    .toolbar-actions {
+
+    .actions-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-    .filters {
+
+    .stats-bar {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
-      flex: 1;
+      margin-bottom: 12px;
     }
-    .filters input {
-      max-width: 260px;
+
+    .stat-pill {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #334155;
     }
-    .filters select {
-      max-width: 220px;
+
+    .stat-pill strong {
+      color: var(--primary);
     }
+
+    .filters-bar {
+      display: grid;
+      grid-template-columns: minmax(200px, 1fr) 220px;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
     .table-wrap {
-      overflow-x: auto;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 10px;
-      max-height: 780px;
+      overflow-x: auto;
+      max-height: 760px;
+      background: #fff;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 12.5px;
-      min-width: 1120px;
+      min-width: 1040px;
     }
-    th {
-      background: #1e3a5f;
-      color: #ffffff;
+
+    thead th {
+      background: var(--primary);
+      color: #fff;
       text-align: left;
-      padding: 10px 11px;
+      padding: 10px;
       font-weight: 600;
       position: sticky;
       top: 0;
       z-index: 2;
       white-space: nowrap;
     }
-    td {
-      padding: 9px 11px;
-      border-top: 1px solid #e2e8f0;
-      color: #1e293b;
+
+    tbody td {
+      padding: 9px 10px;
+      border-top: 1px solid var(--border);
       vertical-align: top;
     }
-    tr:nth-child(even) td {
+
+    tbody tr:nth-child(even) td {
       background: #f8fafc;
     }
-    .sub {
-      color: #64748b;
-      font-size: 11.5px;
-      margin-top: 3px;
-      line-height: 1.38;
-    }
-    .contact-mini {
+
+    .cell-input {
       width: 100%;
-      padding: 5px 7px;
-      font-size: 11.5px;
-      border: 1px solid #cbd5e1;
-      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 6px;
       margin-top: 4px;
-      background: #fff;
     }
-    .link-hint {
-      display: inline-block;
-      margin-top: 4px;
-      margin-right: 10px;
-      font-size: 11px;
-      color: #0f766e;
+
+    .cell-input:first-child {
+      margin-top: 0;
+    }
+
+    .cell-title {
+      font-weight: 600;
+    }
+
+    .action-links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .action-link {
+      font-size: 11.5px;
       font-weight: 600;
       text-decoration: none;
+      color: var(--accent);
     }
-    .link-hint:hover {
+
+    .action-link:hover {
       text-decoration: underline;
     }
-    .link-google {
-      color: #1d4ed8;
+
+    .action-link.google {
+      color: var(--google);
     }
-    .row-select {
-      padding: 6px 8px;
+
+    .cap-badge {
+      display: inline-block;
+      font-weight: 700;
       font-size: 12px;
+      color: var(--primary);
+      background: #e2e8f0;
+      padding: 2px 7px;
       border-radius: 6px;
-      min-width: 145px;
+      margin-bottom: 4px;
     }
-    .row-input {
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 6px;
-      min-width: 110px;
+
+    .sub-text {
+      font-size: 11.5px;
+      color: var(--muted);
     }
-    .row-note {
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 6px;
-      min-width: 165px;
+
+    /* Tablet */
+    @media (max-width: 1024px) {
+      .grid-main {
+        grid-template-columns: 1fr;
+      }
+      .table-wrap {
+        max-height: none;
+      }
     }
-    @media (max-width: 980px) {
-      .layout { grid-template-columns: 1fr; }
-      .filters input, .filters select { max-width: 100%; }
+
+    /* Telefono: schede pulite senza scroll orizzontale stretto */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .card {
+        padding: 14px;
+        border-radius: 10px;
+      }
+
+      .row-2,
+      .filters-bar {
+        grid-template-columns: 1fr;
+      }
+
+      .actions-row {
+        width: 100%;
+      }
+
+      .actions-row .btn-sm {
+        flex: 1 1 auto;
+      }
+
+      .table-wrap {
+        border: none;
+        background: transparent;
+        overflow: visible;
+      }
+
+      table {
+        min-width: 0;
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      tbody tr {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #ffffff !important;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      }
+
+      tbody td {
+        display: block;
+        padding: 0;
+        border: none;
+      }
+
+      input, select, textarea, .cell-input {
+        font-size: 14px;
+        padding: 9px 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="layout">
+  <div class="app">
+    <div class="grid-main">
+      <!-- Pannello sinistro filtri -->
       <div class="card">
-        <span class="badge">Artsoftware2022 • Vocalis • Salvataggio Auto</span>
-        <h1>Estrai Ristoranti Reali</h1>
-        <p class="desc">Estrae fino a 100 locali reali per città, salva automaticamente ogni modifica del setter nel browser ed esporta in <strong>.xlsx</strong>.</p>
+        <span class="badge">Artsoftware2022 • Vocalis</span>
+        <h1>Ristoranti &amp; Pizzerie</h1>
+        <p class="desc">Lista ordinata per CAP, <strong>Apri su Google ↗</strong> per i numeri, salvataggio automatico ed export <strong>.xlsx</strong>.</p>
 
         <form id="leadForm">
           <div class="field">
             <label for="citta">Città italiana *</label>
-            <input id="citta" name="citta" type="text" value="Terni" list="italianCities" placeholder="Es. Roma, Firenze, Milano, Terni, Siena..." required />
+            <input id="citta" name="citta" type="text" value="Roma" list="italianCities" placeholder="Es. Roma, Milano, Parma..." required />
             <datalist id="italianCities">
               <option value="Ancona"></option>
               <option value="Bari"></option>
               <option value="Bologna"></option>
               <option value="Cagliari"></option>
               <option value="Catania"></option>
-              <option value="Cesena"></option>
+              <option value="Cerveteri"></option>
               <option value="Firenze"></option>
               <option value="Genova"></option>
+              <option value="Ladispoli"></option>
               <option value="Lecce"></option>
               <option value="Livorno"></option>
               <option value="Milano"></option>
@@ -312,28 +459,30 @@
             </datalist>
           </div>
 
-          <div class="grid-2">
+          <div class="row-2">
             <div class="field">
               <label for="zona">Zona / Quartiere</label>
-              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Borgo Rivo..." />
+              <input id="zona" name="zona" type="text" placeholder="Es. Centro, Prati..." />
             </div>
             <div class="field">
-              <label for="limit">Numero contatti (fino a 100)</label>
+              <label for="limit">Numero contatti</label>
               <select id="limit" name="limit">
-                <option value="20">20 contatti</option>
                 <option value="50">50 contatti</option>
                 <option value="100" selected>100 contatti</option>
+                <option value="200">200 contatti</option>
+                <option value="500">500 contatti</option>
+                <option value="1000">1000 contatti</option>
               </select>
             </div>
           </div>
 
-          <div class="grid-2">
+          <div class="row-2">
             <div class="field">
-              <label for="setter">Setter assegnato (anche separati da virgola)</label>
-              <input id="setter" name="setter" type="text" placeholder="Es. Eliana oppure Eliana, Luca" />
+              <label for="setter">Setter (anche più nomi, virgola)</label>
+              <input id="setter" name="setter" type="text" placeholder="Es. Eliana, Luca" />
             </div>
             <div class="field">
-              <label for="statoIniziale">Stato chiamata iniziale</label>
+              <label for="statoIniziale">Stato iniziale</label>
               <select id="statoIniziale" name="statoIniziale">
                 <option value="Da chiamare" selected>Da chiamare</option>
                 <option value="Non risponde">Non risponde</option>
@@ -348,32 +497,39 @@
 
           <div class="field">
             <label for="noteIniziali">Note iniziali (opzionale)</label>
-            <textarea id="noteIniziali" name="noteIniziali" placeholder="Es. Chiedere del titolare o del responsabile prenotazioni..."></textarea>
+            <textarea id="noteIniziali" name="noteIniziali" placeholder="Es. Chiedere del titolare..."></textarea>
           </div>
 
-          <button id="loadBtn" type="submit" class="btn btn-primary">Carica Contatti Reali</button>
+          <button id="loadBtn" type="submit" class="btn btn-primary">Carica Contatti</button>
           <button id="exportBtn" type="button" class="btn btn-export">Scarica Excel (.xlsx)</button>
 
-          <div id="statusBox" class="status-box">Pronto. Inserisci una città italiana e premi <strong>Carica Contatti Reali</strong>.</div>
+          <div id="statusBox" class="status-box">Pronto. Premi <strong>Carica Contatti</strong>.</div>
         </form>
       </div>
 
+      <!-- Pannello destro lista setter -->
       <div class="card">
-        <div class="toolbar">
+        <div class="top-bar">
           <div>
-            <h2>Anteprima Lead Reali &amp; Stato Chiamata</h2>
-            <p class="desc" style="margin:0;">Ogni modifica viene salvata automaticamente in questo browser anche se ricarichi la pagina.</p>
+            <h2>Lista Lead &amp; Stato Chiamata</h2>
+            <p class="desc" style="margin:0;">Ogni modifica resta salvata in automatico nel browser.</p>
           </div>
-          <div class="toolbar-actions">
-            <button id="addOneBtn" type="button" class="btn-add">+ Aggiungi riga manuale</button>
-            <button id="clearStorageBtn" type="button" class="btn-clear">Svuota salvataggio</button>
+          <div class="actions-row">
+            <button id="addOneBtn" type="button" class="btn btn-secondary btn-sm">+ Aggiungi riga</button>
+            <button id="clearStorageBtn" type="button" class="btn btn-danger btn-sm">Svuota</button>
           </div>
         </div>
 
-        <div class="filters" style="margin-bottom:14px;">
-          <input id="searchInput" type="text" placeholder="Cerca locale, telefono, whatsapp, sito, setter o email..." />
+        <div id="statsBar" class="stats-bar">
+          <div class="stat-pill">Totale: <strong id="statTotal">0</strong></div>
+          <div class="stat-pill">Da chiamare: <strong id="statTodo">0</strong></div>
+          <div class="stat-pill">Appuntamenti: <strong id="statBooked">0</strong></div>
+        </div>
+
+        <div class="filters-bar">
+          <input id="searchInput" type="text" placeholder="Cerca locale, CAP, telefono, setter, note..." />
           <select id="filterStatus">
-            <option value="">Tutti gli stati chiamata</option>
+            <option value="">Tutti gli stati</option>
             <option value="Da chiamare">Da chiamare</option>
             <option value="Non risponde">Non risponde</option>
             <option value="Richiamare">Richiamare</option>
@@ -388,12 +544,12 @@
           <table>
             <thead>
               <tr>
-                <th style="min-width:290px;">Nome Locale &amp; Info Ristorante</th>
-                <th>Città / Zona</th>
-                <th style="min-width:255px;">Sito, Tel, WhatsApp &amp; Email</th>
-                <th>Stato Chiamata</th>
-                <th>Setter</th>
-                <th>Note</th>
+                <th style="width:28%;">Locale &amp; Info</th>
+                <th style="width:14%;">CAP &amp; Zona</th>
+                <th style="width:24%;">Recapiti</th>
+                <th style="width:13%;">Stato</th>
+                <th style="width:10%;">Setter</th>
+                <th style="width:11%;">Note</th>
               </tr>
             </thead>
             <tbody id="leadsBody"></tbody>
@@ -404,7 +560,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "vocalis_leads_autosave_v8";
+    const STORAGE_KEY = "vocalis_leads_autosave_v21";
     const CALL_STATUSES = [
       "Da chiamare",
       "Non risponde",
@@ -417,6 +573,15 @@
 
     let leads = [];
 
+    function updateStats() {
+      const total = leads.length;
+      const todo = leads.filter((x) => x.statoChiamata === "Da chiamare").length;
+      const booked = leads.filter((x) => x.statoChiamata === "Appuntamento fissato").length;
+      document.getElementById("statTotal").textContent = total;
+      document.getElementById("statTodo").textContent = todo;
+      document.getElementById("statBooked").textContent = booked;
+    }
+
     function saveLeadsToStorage() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -427,8 +592,9 @@
           leads
         }));
       } catch {
-        // ignora errori di quota storage
+        // ignora quota storage
       }
+      updateStats();
     }
 
     function restoreLeadsFromStorage() {
@@ -442,7 +608,9 @@
           if (parsed.zona) document.getElementById("zona").value = parsed.zona;
           if (parsed.setter) document.getElementById("setter").value = parsed.setter;
           renderTable();
-          document.getElementById("statusBox").innerHTML = `Ripristinati <strong>${leads.length}</strong> contatti salvati in automatico (ultimo salvataggio: <strong>${escapeHtml(new Date(parsed.updatedAt || Date.now()).toLocaleTimeString("it-IT"))}</strong>).`;
+          updateStats();
+          const ora = new Date(parsed.updatedAt || Date.now()).toLocaleTimeString("it-IT");
+          document.getElementById("statusBox").innerHTML = `Ripristinati <strong>${leads.length}</strong> contatti (salvato alle <strong>${escapeHtml(ora)}</strong>).`;
           return true;
         }
       } catch {
@@ -455,7 +623,8 @@
       localStorage.removeItem(STORAGE_KEY);
       leads = [];
       renderTable();
-      document.getElementById("statusBox").innerHTML = `Salvataggio locale svuotato. Premi <strong>Carica Contatti Reali</strong> per estrarre una nuova lista.`;
+      updateStats();
+      document.getElementById("statusBox").innerHTML = `Lista svuotata. Premi <strong>Carica Contatti</strong> per caricare una città.`;
     }
 
     function normalizeKey(str) {
@@ -464,12 +633,7 @@
 
     function isDuplicate(candidate) {
       const nKey = normalizeKey(candidate.nome);
-      const tKey = normalizeKey(candidate.telefono);
-      return leads.some((item) => {
-        const sameName = nKey && normalizeKey(item.nome) === nKey;
-        const samePhone = tKey && item.telefono && normalizeKey(item.telefono) === tKey;
-        return sameName || samePhone;
-      });
+      return leads.some((item) => nKey && normalizeKey(item.nome) === nKey);
     }
 
     function toWhatsAppLink(rawWa) {
@@ -491,45 +655,44 @@
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim() || "Centro";
       const settersList = parseSetters(document.getElementById("setter").value);
-      const setterDefault = settersList[0] || "";
       const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
       const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
 
       leads.unshift({
         id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
-        nome: "Nuovo Locale",
-        info: "Inserisci indirizzo, CAP, cucina, orari...",
+        nome: "Nuovo Ristorante / Pizzeria",
+        info: "Via / Piazza • CAP",
         citta,
         zona: zonaFiltro,
+        cap: "99999",
         sito: "",
         telefono: "",
         whatsapp: "",
         email: "",
         statoChiamata: statoDefault,
-        setter: setterDefault,
+        setter: settersList[0] || "",
         note: noteDefault
       });
       saveLeadsToStorage();
       renderTable();
-      document.getElementById("statusBox").innerHTML = `Aggiunta riga manuale per <strong>${escapeHtml(citta)}</strong>. Totale righe: <strong>${leads.length}</strong> (salvato in automatico).`;
     }
 
     async function loadRealContacts() {
-      const rawCity = (document.getElementById("citta").value || "").trim() || "Terni";
+      const rawCity = (document.getElementById("citta").value || "").trim() || "Roma";
       const citta = rawCity.charAt(0).toUpperCase() + rawCity.slice(1);
       const zonaFiltro = (document.getElementById("zona").value || "").trim();
       const settersList = parseSetters(document.getElementById("setter").value);
       const statoDefault = document.getElementById("statoIniziale").value || "Da chiamare";
       const noteDefault = (document.getElementById("noteIniziali").value || "").trim();
-      const targetLimit = Math.min(100, Math.max(1, parseInt(document.getElementById("limit").value || "100", 10)));
+      const targetLimit = Math.min(2000, Math.max(1, parseInt(document.getElementById("limit").value || "100", 10)));
 
       const loadBtn = document.getElementById("loadBtn");
       const statusBox = document.getElementById("statusBox");
 
       leads = [];
       loadBtn.disabled = true;
-      loadBtn.textContent = "Estrazione e arricchimento...";
-      statusBox.innerHTML = `Estrazione multi-fonte (Overpass + Photon + Nominatim + web) per <strong>${escapeHtml(citta)}</strong>...`;
+      loadBtn.textContent = "Caricamento...";
+      statusBox.innerHTML = `Ricerca ristoranti e pizzerie per <strong>${escapeHtml(citta)}</strong>...`;
 
       try {
         const params = new URLSearchParams({
@@ -543,22 +706,19 @@
         const rawItems = Array.isArray(data.items) ? data.items : [];
 
         for (const raw of rawItems) {
-          const assignedSetter = settersList.length
-            ? settersList[leads.length % settersList.length]
-            : "";
-
           const record = {
             id: crypto.randomUUID ? crypto.randomUUID() : String(Math.random()),
             nome: raw.nome,
             info: raw.info || "",
             citta: raw.citta || citta,
             zona: zonaFiltro || raw.zona || "Centro",
+            cap: raw.cap || "99999",
             sito: raw.sito || "",
             telefono: raw.telefono || "",
             whatsapp: raw.whatsapp || "",
             email: raw.email || "",
             statoChiamata: statoDefault,
-            setter: assignedSetter,
+            setter: settersList.length ? settersList[leads.length % settersList.length] : "",
             note: noteDefault
           };
           if (!isDuplicate(record) && leads.length < targetLimit) {
@@ -568,22 +728,13 @@
 
         saveLeadsToStorage();
         renderTable();
-        const withSite = leads.filter((x) => x.sito).length;
-        const withWa = leads.filter((x) => x.whatsapp).length;
-        const withPhone = leads.filter((x) => x.telefono).length;
-        const withEmail = leads.filter((x) => x.email).length;
-
-        if (leads.length === 0) {
-          statusBox.innerHTML = `Nessun locale trovato per <strong>${escapeHtml(citta)}</strong> al momento. Puoi aggiungere righe con <strong>+ Aggiungi riga manuale</strong>.`;
-        } else {
-          statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (Tel: <strong>${withPhone}</strong> • WhatsApp: <strong>${withWa}</strong> • Sito: <strong>${withSite}</strong> • Email: <strong>${withEmail}</strong>). Salvataggio automatico attivo.`;
-        }
+        statusBox.innerHTML = `Caricati <strong>${leads.length}</strong> locali per <strong>${escapeHtml(citta)}</strong> (ordinati per CAP, salvataggio automatico attivo).`;
       } catch (err) {
         renderTable();
-        statusBox.innerHTML = `Errore durante l'estrazione (<code>${escapeHtml(err.message)}</code>). Riprova o usa <strong>+ Aggiungi riga manuale</strong>.`;
+        statusBox.innerHTML = `Errore: <code>${escapeHtml(err.message)}</code>. Puoi anche aggiungere righe con <strong>+ Aggiungi riga</strong>.`;
       } finally {
         loadBtn.disabled = false;
-        loadBtn.textContent = "Carica Contatti Reali";
+        loadBtn.textContent = "Carica Contatti";
       }
     }
 
@@ -593,15 +744,16 @@
       const tbody = document.getElementById("leadsBody");
 
       const filtered = leads.filter((item) => {
-        const matchesStatus = !statusFilter || item.statoChiamata === statusFilter;
-        if (!matchesStatus) return false;
+        if (statusFilter && item.statoChiamata !== statusFilter) return false;
         if (!q) return true;
-        const hay = `${item.nome} ${item.info} ${item.citta} ${item.zona} ${item.sito} ${item.telefono} ${item.whatsapp} ${item.email} ${item.setter} ${item.note}`.toLowerCase();
+        const hay = `${item.nome} ${item.info} ${item.citta} ${item.zona} ${item.cap} ${item.telefono} ${item.whatsapp} ${item.sito} ${item.email} ${item.setter} ${item.note}`.toLowerCase();
         return hay.includes(q);
       });
 
+      updateStats();
+
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Nessun contatto visualizzato con i filtri attuali.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:#64748b;">Nessun contatto da mostrare.</td></tr>`;
         return;
       }
 
@@ -611,44 +763,40 @@
         ).join("");
 
         const waUrl = toWhatsAppLink(item.whatsapp);
-        const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(`${item.nome} ${item.citta} telefono`)}`;
-
-        const siteLinkHtml = item.sito
-          ? `<a class="link-hint" href="${escapeAttr(item.sito)}" target="_blank" rel="noopener noreferrer">Apri sito ↗</a>`
-          : "";
-        const waLinkHtml = waUrl
-          ? `<a class="link-hint" href="${escapeAttr(waUrl)}" target="_blank" rel="noopener noreferrer">Chat WhatsApp ↗</a>`
-          : "";
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(`${item.nome} ${item.citta}`)}`;
+        const capText = item.cap && item.cap !== "99999" ? `CAP ${item.cap}` : "CAP N/D";
 
         return `
           <tr>
             <td>
-              <input class="contact-mini" style="font-weight:600; margin-top:0;" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
-              <input class="contact-mini" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina, orari..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
-              <a class="link-hint link-google" href="${escapeAttr(googleSearchUrl)}" target="_blank" rel="noopener noreferrer">Apri su Google ↗</a>
+              <input class="cell-input cell-title" type="text" value="${escapeAttr(item.nome)}" placeholder="Nome locale" oninput="updateLeadField('${escapeAttr(item.id)}', 'nome', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.info)}" placeholder="Indirizzo, CAP, cucina..." oninput="updateLeadField('${escapeAttr(item.id)}', 'info', this.value)" />
+              <div class="action-links">
+                <a class="action-link google" href="${escapeAttr(googleUrl)}" target="_blank" rel="noopener noreferrer">Apri su Google ↗</a>
+                ${item.sito ? `<a class="action-link" href="${escapeAttr(item.sito)}" target="_blank" rel="noopener noreferrer">Apri sito ↗</a>` : ""}
+                ${waUrl ? `<a class="action-link" href="${escapeAttr(waUrl)}" target="_blank" rel="noopener noreferrer">WhatsApp ↗</a>` : ""}
+              </div>
             </td>
             <td>
-              <div><strong>${escapeHtml(item.citta)}</strong></div>
-              <div class="sub">${escapeHtml(item.zona)}</div>
+              <span class="cap-badge">${escapeHtml(capText)}</span>
+              <div class="sub-text">${escapeHtml(item.citta)} • ${escapeHtml(item.zona)}</div>
             </td>
             <td>
-              <input class="contact-mini" type="text" value="${escapeAttr(item.sito)}" placeholder="Sito web (https://...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'sito', this.value)" />
-              ${siteLinkHtml}
-              <input class="contact-mini" type="text" value="${escapeAttr(item.telefono)}" placeholder="Telefono (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'telefono', this.value)" />
-              <input class="contact-mini" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+393...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
-              ${waLinkHtml}
-              <input class="contact-mini" type="text" value="${escapeAttr(item.email)}" placeholder="Email" oninput="updateLeadField('${escapeAttr(item.id)}', 'email', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.telefono)}" placeholder="Telefono (+39...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'telefono', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.whatsapp)}" placeholder="WhatsApp (+393...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'whatsapp', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.sito)}" placeholder="Sito web (https://...)" oninput="updateLeadField('${escapeAttr(item.id)}', 'sito', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.email)}" placeholder="Email" oninput="updateLeadField('${escapeAttr(item.id)}', 'email', this.value)" />
             </td>
             <td>
-              <select class="row-select" onchange="updateLeadField('${escapeAttr(item.id)}', 'statoChiamata', this.value)">
+              <select class="cell-input" onchange="updateLeadField('${escapeAttr(item.id)}', 'statoChiamata', this.value)">
                 ${optionsHtml}
               </select>
             </td>
             <td>
-              <input class="row-input" type="text" value="${escapeAttr(item.setter)}" placeholder="Setter" oninput="updateLeadField('${escapeAttr(item.id)}', 'setter', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.setter)}" placeholder="Setter" oninput="updateLeadField('${escapeAttr(item.id)}', 'setter', this.value)" />
             </td>
             <td>
-              <input class="row-note" type="text" value="${escapeAttr(item.note)}" placeholder="Scrivi nota..." oninput="updateLeadField('${escapeAttr(item.id)}', 'note', this.value)" />
+              <input class="cell-input" type="text" value="${escapeAttr(item.note)}" placeholder="Scrivi nota..." oninput="updateLeadField('${escapeAttr(item.id)}', 'note', this.value)" />
             </td>
           </tr>
         `;
@@ -665,19 +813,20 @@
 
     function exportToExcel() {
       if (!leads.length) {
-        alert("Carica prima i contatti per generare il file Excel.");
+        alert("Carica prima i contatti per esportare il file Excel.");
         return;
       }
       const citta = (document.getElementById("citta").value || "citta").trim();
       const rowsForSheet = leads.map((r, idx) => ({
         "#": idx + 1,
+        "CAP": r.cap && r.cap !== "99999" ? r.cap : "",
         "Nome Locale": r.nome,
         "Citta": r.citta,
         "Zona": r.zona,
-        "Informazioni Ristorante": r.info,
-        "Sito Web": r.sito,
+        "Informazioni": r.info,
         "Telefono": r.telefono,
         "WhatsApp": r.whatsapp,
+        "Sito Web": r.sito,
         "Email": r.email,
         "Stato Chiamata": r.statoChiamata,
         "Setter": r.setter,
@@ -715,6 +864,7 @@
     document.getElementById("searchInput").addEventListener("input", renderTable);
     document.getElementById("filterStatus").addEventListener("change", renderTable);
 
+    updateStats();
     if (!restoreLeadsFromStorage()) {
       loadRealContacts();
     }
